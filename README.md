@@ -1,7 +1,8 @@
 # DYNAMIC_DATA
 Create ABAP nested data types dynamically within your program
+在程序内动态创建ABAP嵌套数据类型
 
-### 使用方法
+### USE 使用方法 
 
 ```ABAP
   DATA: lr_type TYPE REF TO cl_abap_datadescr.
@@ -29,5 +30,6 @@ Create ABAP nested data types dynamically within your program
 ```
 
 ## 欢迎“一键三连”，欢迎增加新特性
+
 
 相关文章：https://zhuanlan.zhihu.com/p/19400730868
