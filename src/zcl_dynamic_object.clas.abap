@@ -66,13 +66,13 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
     ls_comp-name = fldname.
     CASE method.
       WHEN 'A' .
-        ls_comp-type ?= cl_abap_tabledescr=>describe_by_data( object ).
+        ls_comp-type ?= cl_abap_typedescr=>describe_by_data( object ).
       WHEN 'B'.
-        ls_comp-type ?= cl_abap_tabledescr=>describe_by_name( object ).
+        ls_comp-type ?= cl_abap_typedescr=>describe_by_name( object ).
       WHEN 'C' .
-        ls_comp-type ?= cl_abap_tabledescr=>describe_by_object_ref( object ).
+        ls_comp-type ?= cl_abap_typedescr=>describe_by_object_ref( object ).
       WHEN 'D' .
-        ls_comp-type ?= cl_abap_tabledescr=>describe_by_data_ref( object ).
+        ls_comp-type ?= cl_abap_typedescr=>describe_by_data_ref( object ).
       WHEN OTHERS.
     ENDCASE.
 
