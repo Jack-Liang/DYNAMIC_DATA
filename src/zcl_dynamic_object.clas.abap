@@ -119,20 +119,7 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
                                   method =  'B'
                                   object = 'STRING'
                                   CHANGING comp_tab = lt_comp[] ).
-        WHEN 'S'.
-
-          "构造下级字段列表
-          structural_sub( CHANGING field_tab = lt_datadescr split_tab = lt_split  ).
-
-          create_by_field_tab( EXPORTING type = <fs_datadescr>-fldtype
-                               IMPORTING ref_data = l_dyn_obj
-                               CHANGING  field_tab = lt_datadescr ).
-
-          append_field( EXPORTING fldname = <fs_split>
-                                  method =  'D'
-                                  object = l_dyn_obj"创建好的类型
-                                  CHANGING comp_tab = lt_comp[] ).
-        WHEN 'T'.
+        WHEN 'S' OR 'T'.
 
           "构造下级字段列表
           structural_sub( CHANGING field_tab = lt_datadescr split_tab = lt_split  ).
@@ -183,9 +170,6 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
     IF field_tab[] IS INITIAL.
       RAISE execution_failed.
     ENDIF.
-
-
-
 
 
     global_field_tab[] = field_tab[].
