@@ -1,7 +1,5 @@
-# ZABAP_TOOLS
-ABAP工具包
-
-## 动态创建ABAP数据类型
+# DYNAMIC_DATA
+Create ABAP nested data types dynamically within your program
 
 ### 使用方法
 
