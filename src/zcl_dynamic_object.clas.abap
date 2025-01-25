@@ -10,13 +10,15 @@ public section.
 
   class-methods CREATE_MAIN
     importing
-      value(FIELD_TAB) type ZDOT_DATADESCR
-      value(TYPE) type ZDOE_FLDTYPE
+      value(FIELD_TAB) type ZDOT_DATADESCR optional
+      value(TYPE) type ZDOE_FLDTYPE optional
+      value(JSON_DATA) type STRING optional
     returning
       value(REF_TYPE) type ref to CL_ABAP_DATADESCR
     exceptions
       UNSUPPORTED_TYPE
-      EXECUTION_FAILED .
+      EXECUTION_FAILED
+      DUPLICATE_COMPONENTS .
   PROTECTED SECTION.
 
 
@@ -51,6 +53,21 @@ private section.
     changing
       !FIELD_TAB type ZDOT_DATADESCR
       !SPLIT_TAB type TY_SPLIT .
+  class-methods DESERIALIZE_TO_FIELD_TAB
+    importing
+      !JSON_DATA type STRING
+    changing
+      value(TYPE) type ZDOE_FLDTYPE .
+  class-methods CHECK_OBJECT
+    importing
+      !I_ABAP_TYPE type ref to CL_ABAP_STRUCTDESCR
+      value(I_DATA) type ref to DATA
+      value(I_PARENT) type STRING .
+  class-methods CHECK_COMPONENT
+    importing
+      value(I_PARENT) type STRING
+      !I_COMP type ABAP_COMPDESCR
+      value(I_DATA) type ref to DATA .
 ENDCLASS.
 
 
@@ -161,21 +178,36 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
 
   METHOD create_main.
 
-
-    "check
-    IF type <> field_type-struct AND type <> field_type-table.
+    "入参检查
+    IF json_data IS INITIAL
+      AND ( type <> field_type-struct AND type <> field_type-table ).
       RAISE unsupported_type.
     ENDIF.
 
-    IF field_tab[] IS INITIAL.
+    IF json_data IS NOT INITIAL..
+      deserialize_to_field_tab( EXPORTING json_data = json_data CHANGING type = type ).
+    ELSE.
+      global_field_tab[] = field_tab[].
+    ENDIF.
+
+    IF global_field_tab[] IS INITIAL.
       RAISE execution_failed.
     ENDIF.
 
+    "重复字段检查
+    DATA(lt_field_tab) = global_field_tab.
 
-    global_field_tab[] = field_tab[].
+    SORT lt_field_tab BY fldname.
+    DELETE ADJACENT DUPLICATES FROM lt_field_tab COMPARING fldname.
+    IF lines( global_field_tab ) NE lines( lt_field_tab ).
+      RAISE duplicate_components.
+    ENDIF.
+    FREE lt_field_tab.
+
     create_by_field_tab( EXPORTING type = type
                          IMPORTING ref_type = ref_type
                          CHANGING field_tab = global_field_tab ).
+
 
 
   ENDMETHOD.
@@ -224,6 +256,106 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
 
       ENDIF.
     ENDLOOP.
+
+
+
+  ENDMETHOD.
+
+
+  METHOD check_component.
+
+    DATA  lv_parent TYPE string.
+    FIELD-SYMBOLS: <tab>  TYPE STANDARD TABLE,
+                   <test> TYPE any.
+    DATA: abap_type TYPE REF TO cl_abap_structdescr.
+
+    IF i_parent IS INITIAL.
+      lv_parent = i_comp-name.
+    ELSE.
+      CONCATENATE i_parent '-' i_comp-name INTO lv_parent.
+    ENDIF.
+
+    TRY.
+        DATA(str_type) = CAST cl_abap_structdescr(  cl_abap_structdescr=>describe_by_data_ref( p_data_ref  = i_data ) ).
+
+        APPEND VALUE #( fldname = lv_parent fldtype = 'S' ) TO global_field_tab.
+
+        abap_type = CAST cl_abap_structdescr( cl_abap_structdescr=>describe_by_data_ref( p_data_ref = i_data ) ).
+
+        check_object( i_abap_type = abap_type i_data = i_data i_parent = lv_parent ).
+
+      CATCH cx_root.
+        TRY.
+            DATA(table_type) = CAST cl_abap_tabledescr( cl_abap_tabledescr=>describe_by_data_ref( p_data_ref = i_data ) ).
+            FIELD-SYMBOLS: <table> TYPE ANY TABLE.
+
+            ASSIGN i_data->* TO <table>.
+            LOOP AT <table> ASSIGNING FIELD-SYMBOL(<line>).
+              EXIT.
+            ENDLOOP.
+
+            APPEND VALUE #( fldname = lv_parent fldtype = 'T' ) TO global_field_tab.
+
+            abap_type = CAST cl_abap_structdescr( cl_abap_structdescr=>describe_by_data_ref( p_data_ref = <line> ) ).
+
+            check_object( i_abap_type = abap_type i_data = <line> i_parent = lv_parent ).
+
+          CATCH cx_root.
+            APPEND VALUE #( fldname = lv_parent fldtype = 'F' ) TO global_field_tab.
+        ENDTRY.
+    ENDTRY.
+
+  ENDMETHOD.
+
+
+  METHOD check_object.
+
+    LOOP AT i_abap_type->components ASSIGNING FIELD-SYMBOL(<comp>).
+      DATA(field) = |i_data->{ <comp>-name }|.
+      ASSIGN (field) TO FIELD-SYMBOL(<data>).
+      IF <data> IS ASSIGNED AND <data> IS NOT INITIAL.
+
+        check_component(
+              i_parent = i_parent
+              i_comp = <comp>
+              i_data = <data> ).
+
+      ENDIF.
+      UNASSIGN <data>.
+    ENDLOOP.
+
+  ENDMETHOD.
+
+
+  METHOD deserialize_to_field_tab.
+    DATA: i_data    TYPE REF TO data,
+          abap_type TYPE REF TO cl_abap_structdescr.
+    FIELD-SYMBOLS: <table> TYPE ANY TABLE.
+
+    i_data = /ui2/cl_json=>generate( json = json_data ).
+
+    TRY.
+        DATA(abap_type_table) = CAST cl_abap_tabledescr( cl_abap_tabledescr=>describe_by_data_ref( p_data_ref = i_data ) ).
+        ASSIGN i_data->* TO <table>.
+        LOOP AT <table> ASSIGNING FIELD-SYMBOL(<line>).
+          EXIT.
+        ENDLOOP.
+        type = 'T'.
+
+        abap_type = CAST cl_abap_structdescr( cl_abap_structdescr=>describe_by_data_ref( p_data_ref = <line> ) ).
+
+        check_object( i_abap_type = abap_type i_data = <line> i_parent = '' ).
+
+
+      CATCH cx_sy_move_cast_error.
+        type = 'S'.
+
+        abap_type = CAST cl_abap_structdescr( cl_abap_structdescr=>describe_by_data_ref( p_data_ref = i_data ) ).
+
+        check_object( i_abap_type = abap_type i_data = i_data i_parent = '' ).
+
+    ENDTRY.
+
 
 
 
