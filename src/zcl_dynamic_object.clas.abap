@@ -131,12 +131,12 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
       READ TABLE lt_split ASSIGNING FIELD-SYMBOL(<fs_split>) INDEX lines.
 
       CASE <fs_datadescr>-fldtype.
-        WHEN 'F'.
+        WHEN field_type-field.
           append_field( EXPORTING fldname = <fs_split>
                                   method =  'B'
                                   object = 'STRING'
                                   CHANGING comp_tab = lt_comp[] ).
-        WHEN 'S' OR 'T'.
+        WHEN field_type-struct OR field_type-table.
 
           "构造下级字段列表
           structural_sub( CHANGING field_tab = lt_datadescr split_tab = lt_split  ).
@@ -161,10 +161,10 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
 
       lr_struc = cl_abap_structdescr=>create( lt_comp ).
 
-      IF type = 'S'.
+      IF type = field_type-struct.
         CREATE DATA ref_data  TYPE HANDLE lr_struc.
         ref_type ?= lr_struc.
-      ELSEIF type = 'T'.
+      ELSEIF type = field_type-table.
         lr_table = cl_abap_tabledescr=>create( lr_struc ).
         CREATE DATA ref_data  TYPE HANDLE lr_table.
         ref_type ?= lr_table.
@@ -278,7 +278,7 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
     TRY.
         DATA(str_type) = CAST cl_abap_structdescr(  cl_abap_structdescr=>describe_by_data_ref( p_data_ref  = i_data ) ).
 
-        APPEND VALUE #( fldname = lv_parent fldtype = 'S' ) TO global_field_tab.
+        APPEND VALUE #( fldname = lv_parent fldtype = field_type-struct ) TO global_field_tab.
 
         abap_type = CAST cl_abap_structdescr( cl_abap_structdescr=>describe_by_data_ref( p_data_ref = i_data ) ).
 
@@ -294,14 +294,14 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
               EXIT.
             ENDLOOP.
 
-            APPEND VALUE #( fldname = lv_parent fldtype = 'T' ) TO global_field_tab.
+            APPEND VALUE #( fldname = lv_parent fldtype = field_type-table ) TO global_field_tab.
 
             abap_type = CAST cl_abap_structdescr( cl_abap_structdescr=>describe_by_data_ref( p_data_ref = <line> ) ).
 
             check_object( i_abap_type = abap_type i_data = <line> i_parent = lv_parent ).
 
           CATCH cx_root.
-            APPEND VALUE #( fldname = lv_parent fldtype = 'F' ) TO global_field_tab.
+            APPEND VALUE #( fldname = lv_parent fldtype = field_type-field ) TO global_field_tab.
         ENDTRY.
     ENDTRY.
 
@@ -340,7 +340,7 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
         LOOP AT <table> ASSIGNING FIELD-SYMBOL(<line>).
           EXIT.
         ENDLOOP.
-        type = 'T'.
+        type = field_type-table.
 
         abap_type = CAST cl_abap_structdescr( cl_abap_structdescr=>describe_by_data_ref( p_data_ref = <line> ) ).
 
@@ -348,7 +348,7 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
 
 
       CATCH cx_sy_move_cast_error.
-        type = 'S'.
+        type = field_type-struct.
 
         abap_type = CAST cl_abap_structdescr( cl_abap_structdescr=>describe_by_data_ref( p_data_ref = i_data ) ).
 
