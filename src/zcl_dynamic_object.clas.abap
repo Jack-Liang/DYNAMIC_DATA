@@ -178,6 +178,8 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
 
   METHOD create_main.
 
+    CLEAR: global_field_tab.
+
     "入参检查
     IF json_data IS INITIAL
       AND ( type <> field_type-struct AND type <> field_type-table ).
