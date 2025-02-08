@@ -1,10 +1,11 @@
 # DYNAMIC_DATA
 Create ABAP nested data types dynamically within your program
+
 在程序内动态创建ABAP嵌套数据类型
 
-### USE 使用方法
+## USAGE 使用方法
 
-1. 通过配置字段生成
+### Usage 1 Generate through configuration fields  通过配置字段生成
 
 ```ABAP
   DATA: lr_type TYPE REF TO cl_abap_datadescr.
@@ -15,7 +16,7 @@ Create ABAP nested data types dynamically within your program
   INSERT VALUE #( fldname = 'data_Id' fldtype = 'F' )        INTO lt_field_tab INDEX 1.
   INSERT VALUE #( fldname = 'process_Name' fldtype = 'F' )   INTO lt_field_tab INDEX 2.
   INSERT VALUE #( fldname = 'KCFJ' fldtype = 'T' )           INTO lt_field_tab INDEX 3.
-  INSERT VALUE #( fldname = 'KCFJ-file_Name' fldtype = 'F' ) INTO lt_field_tab INDEX 4.  "上下级用-连接
+  INSERT VALUE #( fldname = 'KCFJ-file_Name' fldtype = 'F' ) INTO lt_field_tab INDEX 4.  "Using ‘-’ to connect superior and subordinate fields
   INSERT VALUE #( fldname = 'KCFJ-file_Path' fldtype = 'F' ) INTO lt_field_tab INDEX 5.
   
   lr_type = zcl_dynamic_object=>create_main( field_tab = lt_field_tab  type = 'S' ).
@@ -31,7 +32,9 @@ Create ABAP nested data types dynamically within your program
   ENDTRY.
 ```
 
-2. 通过json生成
+### Usage 2 Generate via json  通过json生成
+
+
 ```ABAP
   DATA: lr_type TYPE REF TO cl_abap_datadescr.
   DATA dyn_data TYPE REF TO data.
@@ -43,7 +46,7 @@ Create ABAP nested data types dynamically within your program
                '"measures": [  {  "tagId": "A32F", "zC": 1000.132, "yC": 1000.132, "xC": 324.12, "quality": 92 } ] }'.
 
 
-  lr_type = zcl_dynamic_object=>create_main( jsondata = jsondata ).
+  lr_type = zcl_dynamic_object=>create_main( JSON_DATA = json_data ).
   
   TRY.
       CREATE DATA dyn_data TYPE HANDLE lr_type.
@@ -58,10 +61,12 @@ Create ABAP nested data types dynamically within your program
 ```
    
 
-## 欢迎“一键三连”，欢迎增加新特性
+## Looking forward to your suggestions 欢迎“一键三连”，欢迎增加新特性
 
+Related Articles 相关文章：https://zhuanlan.zhihu.com/p/19400730868
 
-相关文章：https://zhuanlan.zhihu.com/p/19400730868
+## Thanks 鸣谢
 
-## 鸣谢
+This project also refers to some code from the following project, and we hereby express our gratitude
+
 [JSON2ABAPType](https://github.com/fidley/JSON2ABAPType)
