@@ -18,6 +18,19 @@
     <DTELMASTER>1</DTELMASTER>
     <REFKIND>D</REFKIND>
    </DD04V>
+   <I18N_LANGS>
+    <LANGU>E</LANGU>
+   </I18N_LANGS>
+   <DD04_TEXTS>
+    <item>
+     <DDLANGUAGE>E</DDLANGUAGE>
+     <DDTEXT>Type acquisition source</DDTEXT>
+     <REPTEXT>Type acquisition source</REPTEXT>
+     <SCRTEXT_S>Type from</SCRTEXT_S>
+     <SCRTEXT_M>Type From</SCRTEXT_M>
+     <SCRTEXT_L>Type acquisition source</SCRTEXT_L>
+    </item>
+   </DD04_TEXTS>
   </asx:values>
  </asx:abap>
 </abapGit>
