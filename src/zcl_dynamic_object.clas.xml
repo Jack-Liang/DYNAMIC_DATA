@@ -4,8 +4,8 @@
   <asx:values>
    <VSEOCLASS>
     <CLSNAME>ZCL_DYNAMIC_OBJECT</CLSNAME>
-    <LANGU>E</LANGU>
-    <DESCRIPT>Dynamically create ABAP objects</DESCRIPT>
+    <LANGU>1</LANGU>
+    <DESCRIPT>动态创建ABAP对象</DESCRIPT>
     <STATE>1</STATE>
     <CLSCCINCL>X</CLSCCINCL>
     <FIXPT>X</FIXPT>

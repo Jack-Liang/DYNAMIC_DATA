@@ -3,7 +3,7 @@
  <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
   <asx:values>
    <DEVC>
-    <CTEXT>DYNAMIC_DATA</CTEXT>
+    <CTEXT>ABAP工具包</CTEXT>
    </DEVC>
   </asx:values>
  </asx:abap>
