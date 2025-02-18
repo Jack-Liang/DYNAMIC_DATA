@@ -68,6 +68,7 @@ private section.
       value(I_PARENT) type STRING
       !I_COMP type ABAP_COMPDESCR
       value(I_DATA) type ref to DATA .
+  class-methods PUT_PARENT_FIELD_FIRST .
 ENDCLASS.
 
 
@@ -180,6 +181,7 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
 
     CLEAR: global_field_tab.
 
+    "Entry check
     "入参检查
     IF json_data IS INITIAL
       AND ( type <> field_type-struct AND type <> field_type-table ).
@@ -196,6 +198,7 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
       RAISE execution_failed.
     ENDIF.
 
+    "Duplicate field check
     "重复字段检查
     DATA(lt_field_tab) = global_field_tab.
 
@@ -206,6 +209,12 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
     ENDIF.
     FREE lt_field_tab.
 
+    "Put the parent field first
+    "把上级字段放在前面
+    put_parent_field_first( ).
+
+    "CREATE TYPE
+    "创建类型
     create_by_field_tab( EXPORTING type = type
                          IMPORTING ref_type = ref_type
                          CHANGING field_tab = global_field_tab ).
@@ -360,6 +369,46 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
 
 
 
+
+  ENDMETHOD.
+
+
+  METHOD put_parent_field_first.
+    CHECK global_field_tab IS NOT INITIAL.
+
+    DATA lt_field LIKE  global_field_tab.
+    DATA ls_field LIKE LINE OF global_field_tab.
+    DATA itab TYPE TABLE OF string.
+    DATA lv_field TYPE string.
+    DATA n TYPE i.
+
+    CONSTANTS sep TYPE c VALUE '-'.
+
+    LOOP AT global_field_tab INTO ls_field.
+      IF ls_field-fldname CS sep.
+        CLEAR: n, lv_field.
+
+        SPLIT ls_field-fldname AT sep INTO TABLE itab.
+        DESCRIBE TABLE itab LINES n.
+        DELETE itab INDEX n.
+
+        CONCATENATE LINES OF itab INTO lv_field SEPARATED BY  sep .
+
+        READ TABLE lt_field WITH KEY fldname = lv_field TRANSPORTING NO FIELDS.
+        IF sy-subrc <> 0.
+          READ TABLE global_field_tab INTO DATA(wa) WITH KEY fldname = lv_field.
+          IF sy-subrc = 0.
+            APPEND wa TO lt_field.
+            DELETE TABLE global_field_tab FROM wa.
+          ENDIF.
+        ENDIF.
+      ENDIF.
+
+      APPEND ls_field TO lt_field.
+
+    ENDLOOP.
+
+    global_field_tab = lt_field.
 
   ENDMETHOD.
 ENDCLASS.

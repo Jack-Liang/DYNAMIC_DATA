@@ -4,9 +4,9 @@
   <asx:values>
    <DD02V>
     <TABNAME>ZDOS_DATADESCR</TABNAME>
-    <DDLANGUAGE>1</DDLANGUAGE>
+    <DDLANGUAGE>E</DDLANGUAGE>
     <TABCLASS>INTTAB</TABCLASS>
-    <DDTEXT>字段列表</DDTEXT>
+    <DDTEXT>Field list</DDTEXT>
     <EXCLASS>1</EXCLASS>
    </DD02V>
    <DD03P_TABLE>
@@ -34,12 +34,12 @@
     </DD03P>
    </DD03P_TABLE>
    <I18N_LANGS>
-    <LANGU>E</LANGU>
+    <LANGU>1</LANGU>
    </I18N_LANGS>
    <DD02_TEXTS>
     <item>
-     <DDLANGUAGE>E</DDLANGUAGE>
-     <DDTEXT>Field list</DDTEXT>
+     <DDLANGUAGE>1</DDLANGUAGE>
+     <DDTEXT>字段列表</DDTEXT>
     </item>
    </DD02_TEXTS>
   </asx:values>
