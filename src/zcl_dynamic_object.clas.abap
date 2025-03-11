@@ -395,9 +395,14 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
 
     CONSTANTS sep TYPE c VALUE '-'.
 
+    LOOP AT global_field_tab ASSIGNING FIELD-SYMBOL(<fs_field>).
+      TRANSLATE <fs_field>-fldname TO UPPER CASE.
+    ENDLOOP.
+
     LOOP AT global_field_tab INTO ls_field.
+
       IF ls_field-fldname CS sep.
-        CLEAR: n, lv_field.
+        CLEAR: n, lv_field,itab.
 
         SPLIT ls_field-fldname AT sep INTO TABLE itab.
         DESCRIBE TABLE itab LINES n.
