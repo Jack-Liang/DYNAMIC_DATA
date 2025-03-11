@@ -33,6 +33,10 @@ private section.
                  struct TYPE char1  VALUE 'S',
                  table  TYPE char1  VALUE 'T',
                END OF field_type .
+  constants C_DESCRIBE_BY_DATA type C value 'A' ##NO_TEXT.
+  constants C_DESCRIBE_BY_NAME type C value 'B' ##NO_TEXT.
+  constants C_DESCRIBE_BY_OBJECT_REF type C value 'C' ##NO_TEXT.
+  constants C_DESCRIBE_BY_DATA_REF type C value 'D' ##NO_TEXT.
 
   class-methods CREATE_BY_FIELD_TAB
     importing
@@ -83,13 +87,13 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
 
     ls_comp-name = fldname.
     CASE method.
-      WHEN 'A' .
+      WHEN c_describe_by_data.
         ls_comp-type ?= cl_abap_typedescr=>describe_by_data( object ).
-      WHEN 'B'.
+      WHEN c_describe_by_name.
         ls_comp-type ?= cl_abap_typedescr=>describe_by_name( object ).
-      WHEN 'C' .
+      WHEN c_describe_by_object_ref .
         ls_comp-type ?= cl_abap_typedescr=>describe_by_object_ref( object ).
-      WHEN 'D' .
+      WHEN c_describe_by_data_ref.
         ls_comp-type ?= cl_abap_typedescr=>describe_by_data_ref( object ).
       WHEN OTHERS.
     ENDCASE.
@@ -133,10 +137,17 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
 
       CASE <fs_datadescr>-fldtype.
         WHEN field_type-field.
-          append_field( EXPORTING fldname = <fs_split>
-                                  method =  'B'
-                                  object = 'STRING'
-                                  CHANGING comp_tab = lt_comp[] ).
+
+
+          IF <fs_datadescr>-struf IS NOT INITIAL.
+
+          ELSE.
+            append_field( EXPORTING fldname = <fs_split>
+                                    method =  c_describe_by_name
+                                    object = 'STRING'
+                                    CHANGING comp_tab = lt_comp[] ).
+          ENDIF.
+
         WHEN field_type-struct OR field_type-table.
 
           "构造下级字段列表
@@ -147,7 +158,7 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
                                CHANGING  field_tab = lt_datadescr ).
 
           append_field( EXPORTING fldname = <fs_split>
-                                  method =  'D'
+                                  method =  c_describe_by_data_ref
                                   object = l_dyn_obj"创建好的类型
                                   CHANGING comp_tab = lt_comp[] ).
 
@@ -384,14 +395,9 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
 
     CONSTANTS sep TYPE c VALUE '-'.
 
-    LOOP AT global_field_tab ASSIGNING FIELD-SYMBOL(<fs_field>).
-      TRANSLATE <fs_field>-fldname TO UPPER CASE.
-    ENDLOOP.
-
     LOOP AT global_field_tab INTO ls_field.
-
       IF ls_field-fldname CS sep.
-        CLEAR: n, lv_field,itab.
+        CLEAR: n, lv_field.
 
         SPLIT ls_field-fldname AT sep INTO TABLE itab.
         DESCRIBE TABLE itab LINES n.
