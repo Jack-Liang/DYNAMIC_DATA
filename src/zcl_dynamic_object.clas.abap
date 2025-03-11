@@ -140,7 +140,7 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
 
           IF <fs_datadescr>-struf IS NOT INITIAL.
             append_field( EXPORTING fldname = <fs_split>
-                                    method =  C_DESCRIBE_BY_NAME
+                                    method =  c_describe_by_name
                                     object = <fs_datadescr>-struf
                                     CHANGING comp_tab = lt_comp[] ).
           ELSEIF <fs_datadescr>-intty IS NOT INITIAL.
@@ -166,16 +166,32 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
         WHEN field_type-struct OR field_type-table.
 
           "构造下级字段列表 Constructs a list of subordinate fields
-          structural_sub( CHANGING field_tab = lt_datadescr split_tab = lt_split  ).
+          IF <fs_datadescr>-struf IS NOT INITIAL.
+            IF <fs_datadescr>-fldtype = field_type-table.
+              CREATE DATA l_dyn_obj TYPE TABLE OF (<fs_datadescr>-struf) .
+              append_field( EXPORTING fldname = <fs_split>
+                                      method =  c_describe_by_data_ref
+                                      object = l_dyn_obj
+                                      CHANGING comp_tab = lt_comp[] ).
+            ELSE.
+              append_field( EXPORTING fldname = <fs_split>
+                                      method =  c_describe_by_name
+                                      object = <fs_datadescr>-struf
+                                      CHANGING comp_tab = lt_comp[] ).
+            ENDIF.
 
-          create_by_field_tab( EXPORTING type = <fs_datadescr>-fldtype
-                               IMPORTING ref_data = l_dyn_obj
-                               CHANGING  field_tab = lt_datadescr ).
+          ELSE.
+            structural_sub( CHANGING field_tab = lt_datadescr split_tab = lt_split  ).
 
-          append_field( EXPORTING fldname = <fs_split>
-                                  method =  c_describe_by_data_ref
-                                  object = l_dyn_obj"创建好的类型 Created type
-                                  CHANGING comp_tab = lt_comp[] ).
+            create_by_field_tab( EXPORTING type = <fs_datadescr>-fldtype
+                                 IMPORTING ref_data = l_dyn_obj
+                                 CHANGING  field_tab = lt_datadescr ).
+
+            append_field( EXPORTING fldname = <fs_split>
+                                    method =  c_describe_by_data_ref
+                                    object = l_dyn_obj"创建好的类型 Created type
+                                    CHANGING comp_tab = lt_comp[] ).
+          ENDIF.
 
         WHEN OTHERS.
 
