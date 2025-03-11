@@ -138,8 +138,23 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
       CASE <fs_datadescr>-fldtype.
         WHEN field_type-field.
 
-
           IF <fs_datadescr>-struf IS NOT INITIAL.
+            append_field( EXPORTING fldname = <fs_split>
+                                    method =  C_DESCRIBE_BY_NAME
+                                    object = <fs_datadescr>-struf
+                                    CHANGING comp_tab = lt_comp[] ).
+          ELSEIF <fs_datadescr>-intty IS NOT INITIAL.
+            "创建一个本地类型 作为参考 Create a local type for reference
+            IF  <fs_datadescr>-intty NE 'P'.
+              CREATE DATA l_dyn_obj TYPE (<fs_datadescr>-intty) LENGTH <fs_datadescr>-lengt .
+            ELSE.
+              CREATE DATA l_dyn_obj TYPE p LENGTH <fs_datadescr>-lengt DECIMALS <fs_datadescr>-decim.
+            ENDIF.
+
+            append_field( EXPORTING fldname = <fs_split>
+                                    method =  c_describe_by_data_ref
+                                    object = l_dyn_obj
+                                    CHANGING comp_tab = lt_comp[] ).
 
           ELSE.
             append_field( EXPORTING fldname = <fs_split>
@@ -150,7 +165,7 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
 
         WHEN field_type-struct OR field_type-table.
 
-          "构造下级字段列表
+          "构造下级字段列表 Constructs a list of subordinate fields
           structural_sub( CHANGING field_tab = lt_datadescr split_tab = lt_split  ).
 
           create_by_field_tab( EXPORTING type = <fs_datadescr>-fldtype
@@ -159,7 +174,7 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
 
           append_field( EXPORTING fldname = <fs_split>
                                   method =  c_describe_by_data_ref
-                                  object = l_dyn_obj"创建好的类型
+                                  object = l_dyn_obj"创建好的类型 Created type
                                   CHANGING comp_tab = lt_comp[] ).
 
         WHEN OTHERS.

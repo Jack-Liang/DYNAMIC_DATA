@@ -63,6 +63,26 @@
      <DESCRIPT>Main method</DESCRIPT>
     </SEOCOMPOTX>
     <SEOCOMPOTX>
+     <CMPNAME>C_DESCRIBE_BY_DATA</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Description of data object type</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>C_DESCRIBE_BY_DATA_REF</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Description of data object type using reference</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>C_DESCRIBE_BY_NAME</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Description of the type using relative/absolute name</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>C_DESCRIBE_BY_OBJECT_REF</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Description of object type using reference</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
      <CMPNAME>DESERIALIZE_TO_FIELD_TAB</CMPNAME>
      <LANGU>1</LANGU>
      <DESCRIPT>解析json到FIELD_TAB</DESCRIPT>
