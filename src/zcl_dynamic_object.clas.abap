@@ -118,7 +118,6 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
     DATA lr_struc     TYPE REF TO cl_abap_structdescr.
     DATA lr_table     TYPE REF TO cl_abap_tabledescr.
 
-
     DATA l_dyn_s  TYPE REF TO cl_abap_datadescr.
     DATA l_dyn_obj  TYPE REF TO data.
 
@@ -165,8 +164,11 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
 
         WHEN field_type-struct OR field_type-table.
 
+          " 以上两种类型，不支持参考基本类型 The preceding two types do not support reference basic types
+          " 如果设置了参考对象，不支持设置下级字段 If the reference object is set, the setting of subordinate fields is not supported
           "构造下级字段列表 Constructs a list of subordinate fields
           IF <fs_datadescr>-struf IS NOT INITIAL.
+
             IF <fs_datadescr>-fldtype = field_type-table.
               CREATE DATA l_dyn_obj TYPE TABLE OF (<fs_datadescr>-struf) .
               append_field( EXPORTING fldname = <fs_split>
@@ -181,10 +183,11 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
             ENDIF.
 
           ELSE.
+
             structural_sub( CHANGING field_tab = lt_datadescr split_tab = lt_split  ).
 
             create_by_field_tab( EXPORTING type = <fs_datadescr>-fldtype
-                                 IMPORTING ref_data = l_dyn_obj
+                                 IMPORTING ref_data = l_dyn_obj         "创建一个类型 Create a type
                                  CHANGING  field_tab = lt_datadescr ).
 
             append_field( EXPORTING fldname = <fs_split>
@@ -354,6 +357,18 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
             check_object( i_abap_type = abap_type i_data = <line> i_parent = lv_parent ).
 
           CATCH cx_root.
+            "检查 i_data 的基本类型 Check the basic type of i_data
+*CALL METHOD cl_abap_typedescr=>describe_by_data
+*  EXPORTING
+*    p_data      =
+*  receiving
+*    p_descr_ref =
+*    .
+*
+*            abap_type = CAST cl_abap_typedescr(  p_data = i_data
+* cl_abap_structdescr=>describe_by_data_ref( p_data_ref = <line> ) ).
+
+
             APPEND VALUE #( fldname = lv_parent fldtype = field_type-field ) TO global_field_tab.
         ENDTRY.
     ENDTRY.
