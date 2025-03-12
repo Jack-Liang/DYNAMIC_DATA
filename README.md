@@ -1,7 +1,7 @@
 # DYNAMIC_DATA
 Create ABAP nested data types dynamically within your program
 
-在程序内动态创建ABAP嵌套数据类型
+在程序内动态创建 ABAP 嵌套数据类型
 
 ## USAGE 使用方法
 
@@ -36,7 +36,7 @@ Use [abapgit](https://github.com/abapGit/docs.abapgit.org) to pull up the projec
   ENDTRY.
 ```
 
-### Usage 2 Generate via json  通过json生成
+### Usage 2 Generate via json  通过 json 生成
 
 
 ```ABAP
@@ -74,7 +74,11 @@ You can also specify the underlying ABAP type, such as `( INTTY = 'C' LENGT= 50 
 
 ### Other 其他说明
 
+This is a nascent project and the authors can not guarantee that it will always work correctly, so please do NOT use it in a production environment.
+
 If you pass `NO_TYPE = ''` to CREATE_MAIN when generating via json, the program will infer the possible data types based on json. **The results obtained in this way are not always accurate**.
+
+这是一个新生的项目，作者不能保证它始终正确运行，因此请不要用于生产环境。
 
 如果在通过 json 生成时，如果给 CREATE_MAIN 传入 `NO_TYPE = ''`, 程序将根据 json 推测可能的数据类型，需要说明的，**这种方式得到的结果并不一定是准确的**。
 
