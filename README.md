@@ -5,6 +5,10 @@ Create ABAP nested data types dynamically within your program
 
 ## USAGE 使用方法
 
+Use [abapgit](https://github.com/abapGit/docs.abapgit.org) to pull up the project code.
+
+请使用 [abapgit](https://github.com/abapGit/docs.abapgit.org) 拉取项目代码。
+
 ### Usage 1 Generate through configuration fields  通过配置字段生成
 
 ```ABAP
