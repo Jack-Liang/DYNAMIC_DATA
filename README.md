@@ -60,6 +60,19 @@ Create ABAP nested data types dynamically within your program
   ENDTRY.
 ```
    
+### Usage 3 Created by basic type  通过基本类型创建
+
+In Usage 1, if you pass a STRUF, such as SFLIGHT-CARRID or S_CARR_ID, to field_tab, the corresponding type is generated instead of the default String type.
+You can also specify the underlying ABAP type, such as ( INTTY = 'C' LENGT= 50 ) or ( INTTY = 'P' LENGT = 8 DECIM = 2 ), which will create a variable of the specified type and length.
+
+在 Usage 1 中，如果给 field_tab 传入 STRUF，如 SFLIGHT-CARRID 或 S_CARR_ID，则会生成对应类型，而不是默认的 String 类型；
+也可以指定基础的 ABAP 类型，例如 ( INTTY = 'C' LENGT = 50 ) 或者 ( INTTY = 'P' LENGT = 8 DECIM = 2 ), 这将会创建指定类型和长度的变量。
+
+### Other 其他说明
+
+If you pass NO_TYPE = '' to CREATE_MAIN when generating via json, the program will infer the possible data types based on json. **It should be noted that the results in this way are not always accurate**.
+
+如果在通过 json 生成时，如果给 CREATE_MAIN 传入 NO_TYPE = '', 程序将根据 json 推测可能的数据类型，需要说明的，**这种方式的结果并不一定是准确的**。
 
 ## Looking forward to your suggestions 欢迎“一键三连”，欢迎增加新特性
 
