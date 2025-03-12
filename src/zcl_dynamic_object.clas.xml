@@ -63,26 +63,6 @@
      <DESCRIPT>Main method</DESCRIPT>
     </SEOCOMPOTX>
     <SEOCOMPOTX>
-     <CMPNAME>C_DESCRIBE_BY_DATA</CMPNAME>
-     <LANGU>E</LANGU>
-     <DESCRIPT>Description of data object type</DESCRIPT>
-    </SEOCOMPOTX>
-    <SEOCOMPOTX>
-     <CMPNAME>C_DESCRIBE_BY_DATA_REF</CMPNAME>
-     <LANGU>E</LANGU>
-     <DESCRIPT>Description of data object type using reference</DESCRIPT>
-    </SEOCOMPOTX>
-    <SEOCOMPOTX>
-     <CMPNAME>C_DESCRIBE_BY_NAME</CMPNAME>
-     <LANGU>E</LANGU>
-     <DESCRIPT>Description of the type using relative/absolute name</DESCRIPT>
-    </SEOCOMPOTX>
-    <SEOCOMPOTX>
-     <CMPNAME>C_DESCRIBE_BY_OBJECT_REF</CMPNAME>
-     <LANGU>E</LANGU>
-     <DESCRIPT>Description of object type using reference</DESCRIPT>
-    </SEOCOMPOTX>
-    <SEOCOMPOTX>
      <CMPNAME>DESERIALIZE_TO_FIELD_TAB</CMPNAME>
      <LANGU>1</LANGU>
      <DESCRIPT>解析json到FIELD_TAB</DESCRIPT>
@@ -101,6 +81,11 @@
      <CMPNAME>GLOBAL_FIELD_TAB</CMPNAME>
      <LANGU>E</LANGU>
      <DESCRIPT>Field List</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>NO_JSON_TYPE</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Types are not inferred from json</DESCRIPT>
     </SEOCOMPOTX>
     <SEOCOMPOTX>
      <CMPNAME>PUT_PARENT_FIELD_FIRST</CMPNAME>
@@ -153,7 +138,13 @@
      <CMPNAME>APPEND_FIELD</CMPNAME>
      <SCONAME>METHOD</SCONAME>
      <LANGU>E</LANGU>
-     <DESCRIPT>Source of type acquisition</DESCRIPT>
+     <DESCRIPT>method of type acquisition</DESCRIPT>
+    </SEOSUBCOTX>
+    <SEOSUBCOTX>
+     <CMPNAME>APPEND_FIELD</CMPNAME>
+     <SCONAME>OBJECT</SCONAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Gets an object of type</DESCRIPT>
     </SEOSUBCOTX>
     <SEOSUBCOTX>
      <CMPNAME>CREATE_BY_FIELD_TAB</CMPNAME>
@@ -238,6 +229,12 @@
      <SCONAME>JSON_DATA</SCONAME>
      <LANGU>E</LANGU>
      <DESCRIPT>Create according to the JSON data</DESCRIPT>
+    </SEOSUBCOTX>
+    <SEOSUBCOTX>
+     <CMPNAME>CREATE_MAIN</CMPNAME>
+     <SCONAME>NO_TYPE</SCONAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Types are not inferred from json</DESCRIPT>
     </SEOSUBCOTX>
     <SEOSUBCOTX>
      <CMPNAME>CREATE_MAIN</CMPNAME>

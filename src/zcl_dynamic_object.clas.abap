@@ -13,6 +13,7 @@ public section.
       value(FIELD_TAB) type ZDOT_DATADESCR optional
       value(TYPE) type ZDOE_FLDTYPE optional
       value(JSON_DATA) type STRING optional
+      value(NO_TYPE) type C default 'X'
     returning
       value(REF_TYPE) type ref to CL_ABAP_DATADESCR
     exceptions
@@ -29,14 +30,18 @@ private section.
   class-data GLOBAL_FIELD_TAB type ZDOT_DATADESCR .
   constants:
     BEGIN OF field_type,
-                 field  TYPE char1  VALUE 'F',
-                 struct TYPE char1  VALUE 'S',
-                 table  TYPE char1  VALUE 'T',
-               END OF field_type .
-  constants C_DESCRIBE_BY_DATA type C value 'A' ##NO_TEXT.
-  constants C_DESCRIBE_BY_NAME type C value 'B' ##NO_TEXT.
-  constants C_DESCRIBE_BY_OBJECT_REF type C value 'C' ##NO_TEXT.
-  constants C_DESCRIBE_BY_DATA_REF type C value 'D' ##NO_TEXT.
+      field  TYPE char1  VALUE 'F',
+      struct TYPE char1  VALUE 'S',
+      table  TYPE char1  VALUE 'T',
+    END OF field_type .
+  constants:
+    BEGIN OF c_des_methd,
+      by_data       TYPE string VALUE 'DESCRIBE_BY_DATA',
+      by_name       TYPE string VALUE 'DESCRIBE_BY_NAME',
+      by_object_ref TYPE string VALUE 'DESCRIBE_BY_OBJECT_REF',
+      by_data_ref   TYPE string VALUE 'DESCRIBE_BY_DATA_REF',
+    END OF c_des_methd .
+  class-data NO_JSON_TYPE type C .
 
   class-methods CREATE_BY_FIELD_TAB
     importing
@@ -49,7 +54,7 @@ private section.
   class-methods APPEND_FIELD
     importing
       !FLDNAME type DATA
-      !METHOD type ZDOE_METHOD
+      !METHOD type STRING
       !OBJECT type DATA
     changing
       !COMP_TAB type ABAP_COMPONENT_TAB .
@@ -82,22 +87,20 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
 
   METHOD append_field.
 
-
     DATA ls_comp TYPE LINE OF abap_component_tab.
 
     ls_comp-name = fldname.
     CASE method.
-      WHEN c_describe_by_data.
+      WHEN c_des_methd-by_data.
         ls_comp-type ?= cl_abap_typedescr=>describe_by_data( object ).
-      WHEN c_describe_by_name.
+      WHEN c_des_methd-by_name.
         ls_comp-type ?= cl_abap_typedescr=>describe_by_name( object ).
-      WHEN c_describe_by_object_ref .
+      WHEN c_des_methd-by_object_ref .
         ls_comp-type ?= cl_abap_typedescr=>describe_by_object_ref( object ).
-      WHEN c_describe_by_data_ref.
+      WHEN c_des_methd-by_data_ref.
         ls_comp-type ?= cl_abap_typedescr=>describe_by_data_ref( object ).
       WHEN OTHERS.
     ENDCASE.
-
 
     APPEND ls_comp TO comp_tab.
 
@@ -139,25 +142,30 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
 
           IF <fs_datadescr>-struf IS NOT INITIAL.
             append_field( EXPORTING fldname = <fs_split>
-                                    method =  c_describe_by_name
+                                    method =  c_des_methd-by_name
                                     object = <fs_datadescr>-struf
                                     CHANGING comp_tab = lt_comp[] ).
           ELSEIF <fs_datadescr>-intty IS NOT INITIAL.
             "创建一个本地类型 作为参考 Create a local type for reference
-            IF  <fs_datadescr>-intty NE 'P'.
-              CREATE DATA l_dyn_obj TYPE (<fs_datadescr>-intty) LENGTH <fs_datadescr>-lengt .
-            ELSE.
-              CREATE DATA l_dyn_obj TYPE p LENGTH <fs_datadescr>-lengt DECIMALS <fs_datadescr>-decim.
-            ENDIF.
+            CASE <fs_datadescr>-intty.
+              WHEN 'P'.
+                CREATE DATA l_dyn_obj TYPE p LENGTH <fs_datadescr>-lengt DECIMALS <fs_datadescr>-decim.
+              WHEN 'C' OR 'N' OR 'X' .
+                CREATE DATA l_dyn_obj TYPE (<fs_datadescr>-intty) LENGTH <fs_datadescr>-lengt .
+              WHEN 'g'.
+                CREATE DATA l_dyn_obj TYPE string.
+              WHEN OTHERS.
+                CREATE DATA l_dyn_obj TYPE (<fs_datadescr>-intty)  .
+            ENDCASE.
 
             append_field( EXPORTING fldname = <fs_split>
-                                    method =  c_describe_by_data_ref
+                                    method =  c_des_methd-by_data_ref
                                     object = l_dyn_obj
                                     CHANGING comp_tab = lt_comp[] ).
 
           ELSE.
             append_field( EXPORTING fldname = <fs_split>
-                                    method =  c_describe_by_name
+                                    method =  c_des_methd-by_name
                                     object = 'STRING'
                                     CHANGING comp_tab = lt_comp[] ).
           ENDIF.
@@ -172,12 +180,12 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
             IF <fs_datadescr>-fldtype = field_type-table.
               CREATE DATA l_dyn_obj TYPE TABLE OF (<fs_datadescr>-struf) .
               append_field( EXPORTING fldname = <fs_split>
-                                      method =  c_describe_by_data_ref
+                                      method =  c_des_methd-by_data_ref
                                       object = l_dyn_obj
                                       CHANGING comp_tab = lt_comp[] ).
             ELSE.
               append_field( EXPORTING fldname = <fs_split>
-                                      method =  c_describe_by_name
+                                      method =  c_des_methd-by_name
                                       object = <fs_datadescr>-struf
                                       CHANGING comp_tab = lt_comp[] ).
             ENDIF.
@@ -191,7 +199,7 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
                                  CHANGING  field_tab = lt_datadescr ).
 
             append_field( EXPORTING fldname = <fs_split>
-                                    method =  c_describe_by_data_ref
+                                    method =  c_des_methd-by_data_ref
                                     object = l_dyn_obj"创建好的类型 Created type
                                     CHANGING comp_tab = lt_comp[] ).
           ENDIF.
@@ -233,7 +241,8 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
       RAISE unsupported_type.
     ENDIF.
 
-    IF json_data IS NOT INITIAL..
+    IF json_data IS NOT INITIAL.
+      no_json_type = no_type.
       deserialize_to_field_tab( EXPORTING json_data = json_data CHANGING type = type ).
     ELSE.
       global_field_tab[] = field_tab[].
@@ -358,18 +367,19 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
 
           CATCH cx_root.
             "检查 i_data 的基本类型 Check the basic type of i_data
-*CALL METHOD cl_abap_typedescr=>describe_by_data
-*  EXPORTING
-*    p_data      =
-*  receiving
-*    p_descr_ref =
-*    .
-*
-*            abap_type = CAST cl_abap_typedescr(  p_data = i_data
-* cl_abap_structdescr=>describe_by_data_ref( p_data_ref = <line> ) ).
+            IF no_json_type = 'X'.
+              APPEND VALUE #( fldname = lv_parent fldtype = field_type-field ) TO global_field_tab.
+            ELSE.
+              DATA(typedescr) = cl_abap_typedescr=>describe_by_data_ref( i_data ).
 
+              APPEND VALUE #( fldname = lv_parent
+                                              fldtype = field_type-field
+                                              intty = typedescr->type_kind
+                                              lengt = typedescr->length
+*                                           DECIM
+              ) TO global_field_tab.
+            ENDIF.
 
-            APPEND VALUE #( fldname = lv_parent fldtype = field_type-field ) TO global_field_tab.
         ENDTRY.
     ENDTRY.
 
