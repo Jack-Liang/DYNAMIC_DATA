@@ -163,6 +163,11 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
                                     object = l_dyn_obj
                                     CHANGING comp_tab = lt_comp[] ).
 
+          ELSEIF <fs_datadescr>-refty IS BOUND.
+            append_field( EXPORTING fldname = <fs_split>
+                                    method =  c_des_methd-by_data_ref
+                                    object = <fs_datadescr>-refty
+                                    CHANGING comp_tab = lt_comp[] ).
           ELSE.
             append_field( EXPORTING fldname = <fs_split>
                                     method =  c_des_methd-by_name
