@@ -13,7 +13,7 @@ public section.
       value(FIELD_TAB) type ZDOT_DATADESCR optional
       value(TYPE) type ZDOE_FLDTYPE optional
       value(JSON_DATA) type STRING optional
-      value(NO_TYPE) type C default 'X'
+      value(NO_TYPE) type C default ABAP_TRUE
     returning
       value(REF_TYPE) type ref to CL_ABAP_DATADESCR
     exceptions
@@ -25,59 +25,59 @@ public section.
 
 
 
-private section.
+  PRIVATE SECTION.
 
-  class-data GLOBAL_FIELD_TAB type ZDOT_DATADESCR .
-  constants:
-    BEGIN OF field_type,
-      field  TYPE char1  VALUE 'F',
-      struct TYPE char1  VALUE 'S',
-      table  TYPE char1  VALUE 'T',
-    END OF field_type .
-  constants:
-    BEGIN OF c_des_methd,
-      by_data       TYPE string VALUE 'DESCRIBE_BY_DATA',
-      by_name       TYPE string VALUE 'DESCRIBE_BY_NAME',
-      by_object_ref TYPE string VALUE 'DESCRIBE_BY_OBJECT_REF',
-      by_data_ref   TYPE string VALUE 'DESCRIBE_BY_DATA_REF',
-    END OF c_des_methd .
-  class-data NO_JSON_TYPE type C .
+    CLASS-DATA global_field_tab TYPE zdot_datadescr .
+    CONSTANTS:
+      BEGIN OF field_type,
+        field  TYPE char1  VALUE 'F',
+        struct TYPE char1  VALUE 'S',
+        table  TYPE char1  VALUE 'T',
+      END OF field_type .
+    CONSTANTS:
+      BEGIN OF c_des_methd,
+        by_data       TYPE string VALUE 'DESCRIBE_BY_DATA',
+        by_name       TYPE string VALUE 'DESCRIBE_BY_NAME',
+        by_object_ref TYPE string VALUE 'DESCRIBE_BY_OBJECT_REF',
+        by_data_ref   TYPE string VALUE 'DESCRIBE_BY_DATA_REF',
+      END OF c_des_methd .
+    CLASS-DATA no_json_type TYPE c .
 
-  class-methods CREATE_BY_FIELD_TAB
-    importing
-      value(TYPE) type ZDOE_FLDTYPE
-    exporting
-      value(REF_TYPE) type ref to CL_ABAP_DATADESCR
-      value(REF_DATA) type ref to DATA
-    changing
-      !FIELD_TAB type ZDOT_DATADESCR .
-  class-methods APPEND_FIELD
-    importing
-      !FLDNAME type DATA
-      !METHOD type STRING
-      !OBJECT type DATA
-    changing
-      !COMP_TAB type ABAP_COMPONENT_TAB .
-  class-methods STRUCTURAL_SUB
-    changing
-      !FIELD_TAB type ZDOT_DATADESCR
-      !SPLIT_TAB type TY_SPLIT .
-  class-methods DESERIALIZE_TO_FIELD_TAB
-    importing
-      !JSON_DATA type STRING
-    changing
-      value(TYPE) type ZDOE_FLDTYPE .
-  class-methods CHECK_OBJECT
-    importing
-      !I_ABAP_TYPE type ref to CL_ABAP_STRUCTDESCR
-      value(I_DATA) type ref to DATA
-      value(I_PARENT) type STRING .
-  class-methods CHECK_COMPONENT
-    importing
-      value(I_PARENT) type STRING
-      !I_COMP type ABAP_COMPDESCR
-      value(I_DATA) type ref to DATA .
-  class-methods PUT_PARENT_FIELD_FIRST .
+    CLASS-METHODS create_by_field_tab
+      IMPORTING
+        VALUE(type)     TYPE zdoe_fldtype
+      EXPORTING
+        VALUE(ref_type) TYPE REF TO cl_abap_datadescr
+        VALUE(ref_data) TYPE REF TO data
+      CHANGING
+        !field_tab      TYPE zdot_datadescr .
+    CLASS-METHODS append_field
+      IMPORTING
+        !fldname  TYPE data
+        !method   TYPE string
+        !object   TYPE data
+      CHANGING
+        !comp_tab TYPE abap_component_tab .
+    CLASS-METHODS structural_sub
+      CHANGING
+        !field_tab TYPE zdot_datadescr
+        !split_tab TYPE ty_split .
+    CLASS-METHODS deserialize_to_field_tab
+      IMPORTING
+        !json_data  TYPE string
+      CHANGING
+        VALUE(type) TYPE zdoe_fldtype .
+    CLASS-METHODS check_object
+      IMPORTING
+        !i_abap_type    TYPE REF TO cl_abap_structdescr
+        VALUE(i_data)   TYPE REF TO data
+        VALUE(i_parent) TYPE string .
+    CLASS-METHODS check_component
+      IMPORTING
+        VALUE(i_parent) TYPE string
+        !i_comp         TYPE abap_compdescr
+        VALUE(i_data)   TYPE REF TO data .
+    CLASS-METHODS put_parent_field_first .
 ENDCLASS.
 
 
@@ -372,7 +372,7 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
 
           CATCH cx_root.
             "检查 i_data 的基本类型 Check the basic type of i_data
-            IF no_json_type = 'X'.
+            IF no_json_type = abap_true.
               APPEND VALUE #( fldname = lv_parent fldtype = field_type-field ) TO global_field_tab.
             ELSE.
               DATA(typedescr) = cl_abap_typedescr=>describe_by_data_ref( i_data ).
