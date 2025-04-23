@@ -1,28 +1,26 @@
-class ZCL_DYNAMIC_OBJECT definition
-  public
-  final
-  create public .
+CLASS zcl_dynamic_object DEFINITION
+  PUBLIC
+  FINAL
+  CREATE PUBLIC .
 
-public section.
+  PUBLIC SECTION.
 
-  types:
-    ty_split TYPE TABLE OF string .
+    TYPES:
+      ty_split TYPE TABLE OF string .
 
-  class-methods CREATE_MAIN
-    importing
-      value(FIELD_TAB) type ZDOT_DATADESCR optional
-      value(TYPE) type ZDOE_FLDTYPE optional
-      value(JSON_DATA) type STRING optional
-      value(NO_TYPE) type C default ABAP_TRUE
-    returning
-      value(REF_TYPE) type ref to CL_ABAP_DATADESCR
-    exceptions
-      UNSUPPORTED_TYPE
-      EXECUTION_FAILED
-      DUPLICATE_COMPONENTS .
+    CLASS-METHODS create_main
+      IMPORTING
+        VALUE(field_tab) TYPE zdot_datadescr OPTIONAL
+        VALUE(type)      TYPE zdoe_fldtype OPTIONAL
+        VALUE(json_data) TYPE string OPTIONAL
+        VALUE(no_type)   TYPE c DEFAULT abap_true
+      RETURNING
+        VALUE(ref_type)  TYPE REF TO cl_abap_datadescr
+      EXCEPTIONS
+        unsupported_type
+        execution_failed
+        duplicate_components .
   PROTECTED SECTION.
-
-
 
 
   PRIVATE SECTION.
@@ -141,10 +139,10 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
         WHEN field_type-field.
 
           IF <fs_datadescr>-struf IS NOT INITIAL.
-            append_field( EXPORTING fldname = <fs_split>
-                                    method =  c_des_methd-by_name
-                                    object = <fs_datadescr>-struf
-                                    CHANGING comp_tab = lt_comp[] ).
+            append_field( EXPORTING fldname  = <fs_split>
+                                    method   = c_des_methd-by_name
+                                    object   = <fs_datadescr>-struf
+                          CHANGING  comp_tab = lt_comp[] ).
           ELSEIF <fs_datadescr>-intty IS NOT INITIAL.
             "创建一个本地类型 作为参考 Create a local type for reference
             CASE <fs_datadescr>-intty.
@@ -158,21 +156,21 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
                 CREATE DATA l_dyn_obj TYPE (<fs_datadescr>-intty)  .
             ENDCASE.
 
-            append_field( EXPORTING fldname = <fs_split>
-                                    method =  c_des_methd-by_data_ref
-                                    object = l_dyn_obj
-                                    CHANGING comp_tab = lt_comp[] ).
+            append_field( EXPORTING fldname  = <fs_split>
+                                    method   = c_des_methd-by_data_ref
+                                    object   = l_dyn_obj
+                          CHANGING  comp_tab = lt_comp[] ).
 
           ELSEIF <fs_datadescr>-refty IS BOUND.
-            append_field( EXPORTING fldname = <fs_split>
-                                    method =  c_des_methd-by_data_ref
-                                    object = <fs_datadescr>-refty
-                                    CHANGING comp_tab = lt_comp[] ).
+            append_field( EXPORTING fldname  = <fs_split>
+                                    method   = c_des_methd-by_data_ref
+                                    object   = <fs_datadescr>-refty
+                          CHANGING  comp_tab = lt_comp[] ).
           ELSE.
-            append_field( EXPORTING fldname = <fs_split>
-                                    method =  c_des_methd-by_name
-                                    object = 'STRING'
-                                    CHANGING comp_tab = lt_comp[] ).
+            append_field( EXPORTING fldname  = <fs_split>
+                                    method   = c_des_methd-by_name
+                                    object   = 'STRING'
+                          CHANGING  comp_tab = lt_comp[] ).
           ENDIF.
 
         WHEN field_type-struct OR field_type-table.
@@ -184,29 +182,29 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
 
             IF <fs_datadescr>-fldtype = field_type-table.
               CREATE DATA l_dyn_obj TYPE TABLE OF (<fs_datadescr>-struf) .
-              append_field( EXPORTING fldname = <fs_split>
-                                      method =  c_des_methd-by_data_ref
-                                      object = l_dyn_obj
-                                      CHANGING comp_tab = lt_comp[] ).
+              append_field( EXPORTING fldname  = <fs_split>
+                                      method   = c_des_methd-by_data_ref
+                                      object   = l_dyn_obj
+                            CHANGING  comp_tab = lt_comp[] ).
             ELSE.
-              append_field( EXPORTING fldname = <fs_split>
-                                      method =  c_des_methd-by_name
-                                      object = <fs_datadescr>-struf
-                                      CHANGING comp_tab = lt_comp[] ).
+              append_field( EXPORTING fldname  = <fs_split>
+                                      method   = c_des_methd-by_name
+                                      object   = <fs_datadescr>-struf
+                            CHANGING  comp_tab = lt_comp[] ).
             ENDIF.
 
           ELSE.
 
-            structural_sub( CHANGING field_tab = lt_datadescr split_tab = lt_split  ).
+            structural_sub( CHANGING field_tab = lt_datadescr split_tab = lt_split ).
 
-            create_by_field_tab( EXPORTING type = <fs_datadescr>-fldtype
-                                 IMPORTING ref_data = l_dyn_obj         "创建一个类型 Create a type
+            create_by_field_tab( EXPORTING type      = <fs_datadescr>-fldtype
+                                 IMPORTING ref_data  = l_dyn_obj         "创建一个类型 Create a type
                                  CHANGING  field_tab = lt_datadescr ).
 
-            append_field( EXPORTING fldname = <fs_split>
-                                    method =  c_des_methd-by_data_ref
-                                    object = l_dyn_obj"创建好的类型 Created type
-                                    CHANGING comp_tab = lt_comp[] ).
+            append_field( EXPORTING fldname  = <fs_split>
+                                    method   = c_des_methd-by_data_ref
+                                    object   = l_dyn_obj "创建好的类型 Created type
+                          CHANGING  comp_tab = lt_comp[] ).
           ENDIF.
 
         WHEN OTHERS.
@@ -229,6 +227,11 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
         ref_type ?= lr_table.
       ENDIF.
 
+    ENDIF.
+
+    "  like "XXXX": [ ]    OR   "XXX": ["XXX" ]
+    IF ref_data IS INITIAL AND type = field_type-table.
+      CREATE DATA ref_data TYPE TABLE OF string.
     ENDIF.
 
 
@@ -274,9 +277,9 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
 
     "CREATE TYPE
     "创建类型
-    create_by_field_tab( EXPORTING type = type
-                         IMPORTING ref_type = ref_type
-                         CHANGING field_tab = global_field_tab ).
+    create_by_field_tab( EXPORTING type      = type
+                         IMPORTING ref_type  = ref_type
+                         CHANGING  field_tab = global_field_tab ).
 
 
 
@@ -366,11 +369,21 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
 
             APPEND VALUE #( fldname = lv_parent fldtype = field_type-table ) TO global_field_tab.
 
-            abap_type = CAST cl_abap_structdescr( cl_abap_structdescr=>describe_by_data_ref( p_data_ref = <line> ) ).
-
-            check_object( i_abap_type = abap_type i_data = <line> i_parent = lv_parent ).
+            IF <line> IS ASSIGNED.
+              IF <line> IS NOT INITIAL.
+                abap_type = CAST cl_abap_structdescr( cl_abap_structdescr=>describe_by_data_ref( p_data_ref = <line> ) ).
+              ELSE.
+                abap_type = CAST cl_abap_structdescr( cl_abap_structdescr=>describe_by_name( p_name = 'STRING' ) ).
+              ENDIF.
+              check_object( i_abap_type = abap_type i_data = <line> i_parent = lv_parent ).
+            ENDIF.
 
           CATCH cx_root.
+
+            IF <line> IS ASSIGNED.  "https://github.com/Jack-Liang/DYNAMIC_DATA/issues/1
+              RETURN.
+            ENDIF.
+
             "检查 i_data 的基本类型 Check the basic type of i_data
             IF no_json_type = abap_true.
               APPEND VALUE #( fldname = lv_parent fldtype = field_type-field ) TO global_field_tab.
@@ -399,9 +412,9 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
       IF <data> IS ASSIGNED AND <data> IS NOT INITIAL.
 
         check_component(
-              i_parent = i_parent
-              i_comp = <comp>
-              i_data = <data> ).
+          i_parent = i_parent
+          i_comp   = <comp>
+          i_data   = <data> ).
 
       ENDIF.
       UNASSIGN <data>.
