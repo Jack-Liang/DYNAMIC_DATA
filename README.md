@@ -72,7 +72,7 @@ You can also specify the underlying ABAP type, such as `( INTTY = 'C' LENGT= 50 
 在 Usage 1 中，如果给 field_tab 传入 STRUF，如 `SFLIGHT-CARRID` 或 `S_CARR_ID`，则会生成对应类型，而不是默认的 String 类型；
 也可以指定基础的 ABAP 类型，例如 `( INTTY = 'C' LENGT = 50 )` 或者 `( INTTY = 'P' LENGT = 8 DECIM = 2 )`, 这将会创建指定类型和长度的变量。
 
-## ⚠️ Notion 其他说明
+## ⚠️ Notion 重要说明
 
 This is a nascent project and the authors can not guarantee that it will always work correctly, so please do NOT use it in a production environment.
 
@@ -85,6 +85,8 @@ If you pass `NO_TYPE = ''` to CREATE_MAIN when generating via json, the program 
 ## 🌟 Looking forward to your suggestions 欢迎“一键三连”，欢迎增加新特性
 
 Related Articles 相关文章：https://zhuanlan.zhihu.com/p/19400730868
+
+## This repository is included in [dotabap](https://dotabap.org/)
 
 ## Thanks 鸣谢
 
