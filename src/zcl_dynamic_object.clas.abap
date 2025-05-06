@@ -238,52 +238,70 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD create_main.
+METHOD create_main.
+*&----------------------------------------------------------------------------
+*&
+*&    Desecription:
+*&        This repository is mainly used for dynamically creating nested data types within the program
+*&        Project Address https://github.com/Jack-Liang/DYNAMIC_DATA
+*&        Please abide by the  MIT license of this project
+*&        Welcome to provide new features to this repository
+*&    Author         :   Jack.Liang
+*&    Create Date:   January 20, 2025
+*&    Program contact:   jack.liang.world@gmail.com
+*&----------------------------------------------------------------------------
+*&    Overview
+*&
+*&----------------------------------------------------------------------------
+*&    Change List
+*&    change NO.    Change Date    Change User    Change Detail
+*&
+*&----------------------------------------------------------------------------
 
-    CLEAR: global_field_tab.
+  CLEAR: global_field_tab.
 
-    "Entry check
-    "入参检查
-    IF json_data IS INITIAL
-      AND ( type <> field_type-struct AND type <> field_type-table ).
-      RAISE unsupported_type.
-    ENDIF.
+  "Entry check
+  "入参检查
+  IF json_data IS INITIAL
+    AND ( type <> field_type-struct AND type <> field_type-table ).
+    RAISE unsupported_type.
+  ENDIF.
 
-    IF json_data IS NOT INITIAL.
-      no_json_type = no_type.
-      deserialize_to_field_tab( EXPORTING json_data = json_data CHANGING type = type ).
-    ELSE.
-      global_field_tab[] = field_tab[].
-    ENDIF.
+  IF json_data IS NOT INITIAL.
+    no_json_type = no_type.
+    deserialize_to_field_tab( EXPORTING json_data = json_data CHANGING type = type ).
+  ELSE.
+    global_field_tab[] = field_tab[].
+  ENDIF.
 
-    IF global_field_tab[] IS INITIAL.
-      RAISE execution_failed.
-    ENDIF.
+  IF global_field_tab[] IS INITIAL.
+    RAISE execution_failed.
+  ENDIF.
 
-    "Duplicate field check
-    "重复字段检查
-    DATA(lt_field_tab) = global_field_tab.
+  "Duplicate field check
+  "重复字段检查
+  DATA(lt_field_tab) = global_field_tab.
 
-    SORT lt_field_tab BY fldname.
-    DELETE ADJACENT DUPLICATES FROM lt_field_tab COMPARING fldname.
-    IF lines( global_field_tab ) NE lines( lt_field_tab ).
-      RAISE duplicate_components.
-    ENDIF.
-    FREE lt_field_tab.
+  SORT lt_field_tab BY fldname.
+  DELETE ADJACENT DUPLICATES FROM lt_field_tab COMPARING fldname.
+  IF lines( global_field_tab ) NE lines( lt_field_tab ).
+    RAISE duplicate_components.
+  ENDIF.
+  FREE lt_field_tab.
 
-    "Put the parent field first
-    "把上级字段放在前面
-    put_parent_field_first( ).
+  "Put the parent field first
+  "把上级字段放在前面
+  put_parent_field_first( ).
 
-    "CREATE TYPE
-    "创建类型
-    create_by_field_tab( EXPORTING type      = type
-                         IMPORTING ref_type  = ref_type
-                         CHANGING  field_tab = global_field_tab ).
+  "CREATE TYPE
+  "创建类型
+  create_by_field_tab( EXPORTING type      = type
+                       IMPORTING ref_type  = ref_type
+                       CHANGING  field_tab = global_field_tab ).
 
 
 
-  ENDMETHOD.
+ENDMETHOD.
 
 
   METHOD structural_sub.
