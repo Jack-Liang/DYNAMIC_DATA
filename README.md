@@ -74,17 +74,20 @@ You can also specify the underlying ABAP type, such as `( INTTY = 'C' LENGT= 50 
 
 ## ⚠️ Notion 重要说明
 
-This is a nascent project and the authors can not guarantee that it will always work correctly, so please do NOT use it in a production environment.
+This is a new project. The author cannot guarantee that it will always run correctly. Therefore, please test it thoroughly before using it in a production environment.
 
 If you pass `NO_TYPE = ''` to CREATE_MAIN when generating via json, the program will infer the possible data types based on json. **The results obtained in this way are not always accurate**.
 
-这是一个新生的项目，作者不能保证它始终正确运行，因此请不要用于生产环境。
+这是一个新项目。作者不能保证它总是正确运行。因此，在将其用于生产环境之前，请对其进行彻底的测试。
 
 如果在通过 json 生成时，如果给 CREATE_MAIN 传入 `NO_TYPE = ''`, 程序将根据 json 推测可能的数据类型，需要说明的，**这种方式得到的结果并不一定是准确的**。
 
 ## 🌟 Looking forward to your suggestions 欢迎“一键三连”，欢迎增加新特性
 
-Related Articles 相关文章：https://zhuanlan.zhihu.com/p/19400730868
+Related Articles 相关文章：
+
+1. [在程序内动态创建ABAP嵌套数据类型](https://zhuanlan.zhihu.com/p/19400730868)
+2. [abapGit 使用经验总结](https://zhuanlan.zhihu.com/p/20034587426)
 
 ## This repository is included in [dotabap](https://dotabap.org/)
 
