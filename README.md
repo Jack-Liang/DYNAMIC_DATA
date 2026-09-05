@@ -17,11 +17,11 @@ Use [abapgit](https://github.com/abapGit/docs.abapgit.org) to pull up the projec
   DATA dyn_data TYPE REF TO data.
   FIELD-SYMBOLS: <fs_wa> TYPE any.
   
-  INSERT VALUE #( fldname = 'data_Id' fldtype = 'F' )        INTO lt_field_tab INDEX 1.
-  INSERT VALUE #( fldname = 'process_Name' fldtype = 'F' )   INTO lt_field_tab INDEX 2.
-  INSERT VALUE #( fldname = 'KCFJ' fldtype = 'T' )           INTO lt_field_tab INDEX 3.
-  INSERT VALUE #( fldname = 'KCFJ-file_Name' fldtype = 'F' ) INTO lt_field_tab INDEX 4.  "Using ‘-’ to connect superior and subordinate fields
-  INSERT VALUE #( fldname = 'KCFJ-file_Path' fldtype = 'F' ) INTO lt_field_tab INDEX 5.
+  INSERT VALUE #( fldname = 'hello'        fldtype = 'F' )        INTO lt_field_tab INDEX 1.
+  INSERT VALUE #( fldname = 'author'       fldtype = 'F' )        INTO lt_field_tab INDEX 2.
+  INSERT VALUE #( fldname = 'skills'       fldtype = 'T' )        INTO lt_field_tab INDEX 3.
+  INSERT VALUE #( fldname = 'skills-name'  fldtype = 'F' )        INTO lt_field_tab INDEX 4.  "Using ‘-’ to connect superior and subordinate fields
+  INSERT VALUE #( fldname = 'skills-level' fldtype = 'F' ) INTO lt_field_tab INDEX 5.
   
   lr_type = zcl_dynamic_object=>create_main( field_tab = lt_field_tab  type = 'S' ).
   
@@ -46,8 +46,9 @@ Use [abapgit](https://github.com/abapGit/docs.abapgit.org) to pull up the projec
 
   FIELD-SYMBOLS: <fs_wa> TYPE any.
 
-  json_data = '{  "tenantId": "949043908", "sensorId": "feef4fff-0731-462e-9972-ee92923de3fd", "timestamp": 1600244897484,' &&
-               '"measures": [  {  "tagId": "A32F", "zC": 1000.132, "yC": 1000.132, "xC": 324.12, "quality": 92 } ] }'.
+  json_data = '{ "hello": "你好！我是一个在运行时才被动态创造出来的嵌套数据类型，请多指教。",' &&
+               '"author": { "name": "Jack Liang", "favLang": "ABAP", "github": "Jack-Liang/DYNAMIC_DATA" },' &&
+               '"skills": [ { "name": "ABAP", "level": 95 }, { "name": "JSON", "level": 88 }, { "name": "Coffee", "level": 100 } ] }'.
 
 
   lr_type = zcl_dynamic_object=>create_main( JSON_DATA = json_data ).
