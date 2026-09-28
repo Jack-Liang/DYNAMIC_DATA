@@ -21,6 +21,14 @@ All notable changes to this project are documented in this file.
 - Invalid field names in `FIELD_TAB` now raise `EXECUTION_FAILED`
   instead of dumping in the RTTS type creation.
 
+### Fixed
+
+- Tree nodes carried the full field path (e.g. `SKILLS-NAME`) as the
+  component name instead of the single path segment, which made
+  `CL_ABAP_STRUCTDESCR=>CREATE` reject every nested structure.
+- New diagnostic unit test `FLAT_PIPELINE_DIAGNOSIS` reports the exact
+  exception class and text if the minimal flat build fails.
+
 ## 2.1.0 - 2026-09-28
 
 ### Added

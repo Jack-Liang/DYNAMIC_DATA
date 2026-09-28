@@ -827,12 +827,13 @@ CLASS lcl_type_builder IMPLEMENTATION.
           " implicitly created intermediate node
           IF <map>-implicit = abap_true AND sy-tabix = lines( lt_segments ).
             <map>-node->ms_row = ls_row.
+            " the node name is the single segment, not the full path
+            <map>-node->ms_row-fldname = lv_segment.
             <map>-implicit = abap_false.
           ENDIF.
           lr_parent = <map>-node.
         ELSE.
           DATA(lr_node) = NEW lcl_tree_node( ).
-          lr_node->ms_row-fldname = lv_segment.
           DATA(lv_implicit) = boolc( sy-tabix < lines( lt_segments ) ).
           IF lv_implicit = abap_false.
             lr_node->ms_row = ls_row.
@@ -840,6 +841,8 @@ CLASS lcl_type_builder IMPLEMENTATION.
             " Undeclared intermediate segments default to structures
             lr_node->ms_row-fldtype = c_fieldtype_struct.
           ENDIF.
+          " the node name is the single segment, not the full path
+          lr_node->ms_row-fldname = lv_segment.
           INSERT VALUE #( path = lv_path node = lr_node implicit = lv_implicit )
                  INTO TABLE lt_map.
           IF lr_parent IS BOUND.

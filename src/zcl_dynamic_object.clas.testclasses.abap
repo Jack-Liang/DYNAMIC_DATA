@@ -141,6 +141,7 @@ CLASS ltcl_dynamic_type DEFINITION FINAL
     METHODS create_data_invalid_json FOR TESTING.
     METHODS walker_emits_typed_rows FOR TESTING RAISING zcx_dynamic_json_error zcx_dynamic_name_error.
     METHODS implicit_parent_becomes_struct FOR TESTING.
+    METHODS flat_pipeline_diagnosis FOR TESTING.
 
     METHODS build_by_json
       IMPORTING
@@ -615,6 +616,30 @@ CLASS ltcl_dynamic_type IMPLEMENTATION.
 
     DATA(lo_a) = CAST cl_abap_structdescr( component( struct = lo_struct name = 'A' ) ).
     assert_string_kind( component( struct = lo_a name = 'B' ) ).
+
+  ENDMETHOD.
+
+  METHOD flat_pipeline_diagnosis.
+
+    " Diagnostic: runs the minimal flat pipeline directly against the
+    " type builder. On failure the exception class name and text are
+    " reported, which pinpoints the failing RTTS statement.
+    TRY.
+        DATA(lr_type) = lcl_type_builder=>build(
+          rows = VALUE zdot_datadescr(
+                   ( fldname = 'PRICE' fldtype = 'F' intty = 'I' )
+                   ( fldname = 'NOTE'  fldtype = 'F' ) )
+          type = 'S' ).
+
+        cl_abap_unit_assert=>assert_bound(
+          act = lr_type
+          msg = 'flat build must return a type' ).
+
+      CATCH cx_dynamic_check INTO DATA(lx_error).
+        DATA(lv_class) = cl_abap_typedescr=>describe_by_object_ref( lx_error )->absolute_name.
+        cl_abap_unit_assert=>fail(
+          msg = |flat build raised { lv_class }: { lx_error->get_text( ) }| ).
+    ENDTRY.
 
   ENDMETHOD.
 
