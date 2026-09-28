@@ -148,6 +148,10 @@ CLASS ltcl_dynamic_type DEFINITION FINAL
     METHODS deep_nested_struct FOR TESTING.
     METHODS deep_nested_table_in_table FOR TESTING.
     METHODS create_data_deep_nested FOR TESTING.
+    METHODS implicit_parent_becomes_struct FOR TESTING.
+    METHODS flat_pipeline_diagnosis FOR TESTING.
+    METHODS field_tab_out_of_order FOR TESTING.
+    METHODS empty_struct_node_raises FOR TESTING.
 
     METHODS build_by_json
       IMPORTING
@@ -944,6 +948,94 @@ CLASS ltcl_dynamic_type IMPLEMENTATION.
     ASSIGN COMPONENT 'LOCATION' OF STRUCTURE <hq> TO FIELD-SYMBOL(<loc>).
     ASSIGN COMPONENT 'CITY' OF STRUCTURE <loc> TO FIELD-SYMBOL(<city>).
     cl_abap_unit_assert=>assert_equals( exp = 'Paris' act = <city> ).
+
+  ENDMETHOD.
+
+
+  METHOD implicit_parent_becomes_struct.
+
+    " Only 'A-B' is configured, no 'A' row: the undeclared intermediate
+    " segment defaults to a structure instead of leaking 'B' to the top
+    DATA(lo_struct) = CAST cl_abap_structdescr( build_by_field_tab(
+      field_tab = VALUE zdot_datadescr( ( fldname = 'A-B' fldtype = 'F' ) )
+      type      = 'S' ) ).
+
+    cl_abap_unit_assert=>assert_equals(
+      exp = 1
+      act = lines( lo_struct->get_components( ) )
+      msg = 'top level must be A only' ).
+
+    DATA(lo_a) = CAST cl_abap_structdescr( component( struct = lo_struct name = 'A' ) ).
+    cl_abap_unit_assert=>assert_equals(
+      exp = 1
+      act = lines( lo_a->get_components( ) ) ).
+    assert_string_kind( component( struct = lo_a name = 'B' ) ).
+
+  ENDMETHOD.
+
+
+  METHOD flat_pipeline_diagnosis.
+
+    " Minimal direct builder call: reports the exact exception class
+    " and text if the flat build fails (on-system diagnosis helper)
+    TRY.
+        DATA(lo_descr) = lcl_type_builder=>build(
+          rows = VALUE zdot_datadescr(
+                   ( fldname = 'ONE' fldtype = 'F' )
+                   ( fldname = 'TWO' fldtype = 'F' ) )
+          type = 'S' ).
+        cl_abap_unit_assert=>assert_bound(
+          act = lo_descr
+          msg = 'flat build must produce a type' ).
+      CATCH cx_dynamic_check INTO DATA(lx_error).
+        DATA(lv_class) = cl_abap_classdescr=>describe_by_object_ref( lx_error )->absolute_name.
+        cl_abap_unit_assert=>fail(
+          msg = |flat build raised { lv_class }: { lx_error->get_text( ) }| ).
+    ENDTRY.
+
+  ENDMETHOD.
+
+
+  METHOD field_tab_out_of_order.
+
+    " Row order must not matter: children listed before their parent
+    " and interleaved with other roots. Regression test for the tree
+    " builder parent handling (the reverted 2.2.0 lr_parent leak)
+    DATA(lo_struct) = CAST cl_abap_structdescr( build_by_field_tab(
+      field_tab = VALUE zdot_datadescr(
+                    ( fldname = 'A-Y' fldtype = 'F' )
+                    ( fldname = 'B' fldtype = 'F' )
+                    ( fldname = 'A' fldtype = 'S' )
+                    ( fldname = 'A-X' fldtype = 'F' ) )
+      type      = 'S' ) ).
+
+    cl_abap_unit_assert=>assert_equals(
+      exp = 2
+      act = lines( lo_struct->get_components( ) )
+      msg = 'top level must be A and B' ).
+
+    DATA(lo_a) = CAST cl_abap_structdescr( component( struct = lo_struct name = 'A' ) ).
+    cl_abap_unit_assert=>assert_equals(
+      exp = 2
+      act = lines( lo_a->get_components( ) )
+      msg = 'A must keep both children' ).
+    assert_string_kind( component( struct = lo_a name = 'X' ) ).
+    assert_string_kind( component( struct = lo_a name = 'Y' ) ).
+    assert_string_kind( component( struct = lo_struct name = 'B' ) ).
+
+  ENDMETHOD.
+
+
+  METHOD empty_struct_node_raises.
+
+    " A struct row without children and without STRUF/INTTY is a field
+    " description error: execution_failed (2) instead of an RTTS dump
+    cl_abap_unit_assert=>assert_equals(
+      exp = 2
+      act = create_field_tab_subrc(
+              field_tab = VALUE zdot_datadescr( ( fldname = 'A' fldtype = 'S' ) )
+              type      = 'S' )
+      msg = 'empty struct node must raise execution_failed' ).
 
   ENDMETHOD.
 

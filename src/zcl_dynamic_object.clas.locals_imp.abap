@@ -745,3 +745,300 @@ CLASS lcl_json_filler IMPLEMENTATION.
   ENDMETHOD.
 
 ENDCLASS.
+
+
+"* Tree based type builder.
+"*
+"* The flat field description rows ('A-B-C' paths) are parsed into a
+"* tree of LCL_TREE_NODE objects first, the types are then generated
+"* bottom up from the tree. The row order is irrelevant - this replaces
+"* the former call stack depth detection (SYSTEM_CALLSTACK), the flag
+"* consumption, the parent reordering pass and the static GT_FIELD_TAB
+"* buffer, making the whole class stateless between calls.
+"*
+"* An intermediate path segment without an own row defaults to a
+"* structure instead of being dropped or leaking into the parent.
+"*
+"* History: first shipped in the reverted 2.2.0. Its on-system failure
+"* (CX_SY_STRUCT_ATTRIBUTES 'The component table is empty') traces back
+"* to two defects that are fixed here: LR_PARENT was not cleared per
+"* source row (nodes were attached under the previous row's last node,
+"* so structures lost their children) and the nested struct create had
+"* no empty fallback. Recursive results are buffered in explicit local
+"* variables before the RTTS calls.
+
+CLASS lcl_tree_node DEFINITION FINAL CREATE PUBLIC.
+
+  PUBLIC SECTION.
+    TYPES ty_children TYPE STANDARD TABLE OF REF TO lcl_tree_node WITH DEFAULT KEY.
+
+    DATA ms_row TYPE zdos_datadescr.
+    DATA mt_children TYPE ty_children.
+
+ENDCLASS.
+
+CLASS lcl_tree_node IMPLEMENTATION.
+ENDCLASS.
+
+
+CLASS lcl_type_builder DEFINITION FINAL CREATE PRIVATE.
+
+  PUBLIC SECTION.
+    CONSTANTS:
+      c_fieldtype_field  TYPE zdoe_fldtype VALUE 'F',
+      c_fieldtype_struct TYPE zdoe_fldtype VALUE 'S',
+      c_fieldtype_table  TYPE zdoe_fldtype VALUE 'T'.
+
+    TYPES ty_nodes TYPE STANDARD TABLE OF REF TO lcl_tree_node WITH DEFAULT KEY.
+
+    CLASS-METHODS build
+      IMPORTING
+        !rows       TYPE zdot_datadescr
+        !type       TYPE zdoe_fldtype
+      RETURNING
+        VALUE(ref_type) TYPE REF TO cl_abap_datadescr
+      RAISING
+        cx_dynamic_check.
+
+  PRIVATE SECTION.
+
+    TYPES:
+      BEGIN OF ty_path_node,
+        path     TYPE string,
+        node     TYPE REF TO lcl_tree_node,
+        implicit TYPE abap_bool,
+      END OF ty_path_node,
+      ty_path_nodes TYPE SORTED TABLE OF ty_path_node WITH UNIQUE KEY path.
+
+    CLASS-METHODS build_tree
+      IMPORTING
+        !rows      TYPE zdot_datadescr
+      RETURNING
+        VALUE(top_nodes) TYPE ty_nodes.
+
+    CLASS-METHODS build_components
+      IMPORTING
+        !nodes         TYPE ty_nodes
+      RETURNING
+        VALUE(comp_tab) TYPE abap_component_tab
+      RAISING
+        cx_dynamic_check.
+
+    CLASS-METHODS build_elem_descr
+      IMPORTING
+        !intty TYPE inttype
+        !lengt TYPE ilen
+        !decim TYPE decimals
+      RETURNING
+        VALUE(descr) TYPE REF TO cl_abap_datadescr.
+
+ENDCLASS.
+
+CLASS lcl_type_builder IMPLEMENTATION.
+
+  METHOD build.
+
+    DATA(lt_top) = build_tree( rows ).
+    DATA(lt_comp) = build_components( lt_top ).
+
+    IF lt_comp IS NOT INITIAL.
+      DATA(lr_struc) = cl_abap_structdescr=>create( lt_comp ).
+      IF type = c_fieldtype_table.
+        ref_type = cl_abap_tabledescr=>create( lr_struc ).
+      ELSE.
+        ref_type = lr_struc.
+      ENDIF.
+    ENDIF.
+
+  ENDMETHOD.
+
+
+  METHOD build_tree.
+
+    DATA lt_map TYPE ty_path_nodes.
+    DATA lv_path TYPE string.
+    DATA lr_parent TYPE REF TO lcl_tree_node.
+    DATA lv_pos TYPE i.
+
+    LOOP AT rows INTO DATA(ls_row).
+
+      " A plain DATA statement does not re-initialize on each loop
+      " pass: without this CLEAR the last node of the previous row
+      " leaks into this row and mis-parents its top level segments.
+      CLEAR: lv_path, lr_parent, lv_pos.
+
+      SPLIT to_upper( ls_row-fldname ) AT '-' INTO TABLE DATA(lt_segments).
+      CHECK lines( lt_segments ) > 0.
+
+      LOOP AT lt_segments INTO DATA(lv_segment).
+
+        " Explicit position counter: sy-tabix must not be used inside
+        " this loop - the READ TABLE on lt_map below overwrites it on
+        " a hit and its value after an unsuccessful read differs
+        " between kernel and runtime implementations.
+        lv_pos = lv_pos + 1.
+
+        IF lv_pos = 1.
+          lv_path = lv_segment.
+        ELSE.
+          lv_path = |{ lv_path }-{ lv_segment }|.
+        ENDIF.
+
+        READ TABLE lt_map ASSIGNING FIELD-SYMBOL(<map>) WITH KEY path = lv_path.
+        IF sy-subrc = 0.
+          " Path already exists: a later explicit row replaces an
+          " implicitly created intermediate node
+          IF <map>-implicit = abap_true AND lv_pos = lines( lt_segments ).
+            <map>-node->ms_row = ls_row.
+            " the node name is the single segment, not the full path
+            <map>-node->ms_row-fldname = lv_segment.
+            <map>-implicit = abap_false.
+          ENDIF.
+          lr_parent = <map>-node.
+        ELSE.
+          DATA(lr_node) = NEW lcl_tree_node( ).
+          " Positive test against abap_true only: boolc( ) returns a
+          " blank for false, and comparing a blank string against
+          " abap_false differs between kernel and transpiled runtime
+          " (trailing blanks are ignored by the kernel only).
+          DATA(lv_implicit) = boolc( lv_pos < lines( lt_segments ) ).
+          IF lv_implicit = abap_true.
+            " Undeclared intermediate segments default to structures
+            lr_node->ms_row-fldtype = c_fieldtype_struct.
+          ELSE.
+            lr_node->ms_row = ls_row.
+          ENDIF.
+          " the node name is the single segment, not the full path
+          lr_node->ms_row-fldname = lv_segment.
+          INSERT VALUE #( path = lv_path node = lr_node implicit = lv_implicit )
+                 INTO TABLE lt_map.
+          IF lr_parent IS BOUND.
+            APPEND lr_node TO lr_parent->mt_children.
+          ELSE.
+            APPEND lr_node TO top_nodes.
+          ENDIF.
+          lr_parent = lr_node.
+        ENDIF.
+
+      ENDLOOP.
+
+    ENDLOOP.
+
+  ENDMETHOD.
+
+
+  METHOD build_components.
+
+    DATA lr_line TYPE REF TO cl_abap_datadescr.
+
+    LOOP AT nodes INTO DATA(lr_node).
+
+      DATA(ls_row) = lr_node->ms_row.
+
+      CASE ls_row-fldtype.
+        WHEN c_fieldtype_field.
+
+          IF ls_row-struf IS NOT INITIAL.
+            APPEND VALUE #(
+              name = ls_row-fldname
+              type = CAST cl_abap_datadescr(
+                       cl_abap_typedescr=>describe_by_name( ls_row-struf ) ) )
+              TO comp_tab.
+          ELSEIF ls_row-intty IS NOT INITIAL.
+            APPEND VALUE #(
+              name = ls_row-fldname
+              type = build_elem_descr( intty = ls_row-intty
+                                       lengt = ls_row-lengt
+                                       decim = ls_row-decim ) )
+              TO comp_tab.
+          ELSEIF ls_row-refty IS BOUND.
+            APPEND VALUE #(
+              name = ls_row-fldname
+              type = CAST cl_abap_datadescr(
+                       cl_abap_typedescr=>describe_by_data_ref( ls_row-refty ) ) )
+              TO comp_tab.
+          ELSE.
+            APPEND VALUE #(
+              name = ls_row-fldname
+              type = cl_abap_elemdescr=>get_string( ) )
+              TO comp_tab.
+          ENDIF.
+
+        WHEN c_fieldtype_struct OR c_fieldtype_table.
+
+          IF ls_row-struf IS NOT INITIAL.
+            lr_line = CAST cl_abap_datadescr(
+                        cl_abap_typedescr=>describe_by_name( ls_row-struf ) ).
+          ELSEIF ls_row-intty IS NOT INITIAL.
+            lr_line = build_elem_descr( intty = ls_row-intty
+                                        lengt = ls_row-lengt
+                                        decim = ls_row-decim ).
+          ELSE.
+            " Buffer the recursive result before the RTTS call. An
+            " empty component table must never reach CREATE: a table
+            " node falls back to TABLE OF string, a struct node is a
+            " field description error.
+            DATA(lt_sub_comp) = build_components( lr_node->mt_children ).
+            IF lines( lt_sub_comp ) > 0.
+              lr_line = cl_abap_structdescr=>create( lt_sub_comp ).
+            ELSEIF ls_row-fldtype = c_fieldtype_table.
+              lr_line = cl_abap_elemdescr=>get_string( ).
+            ELSE.
+              RAISE EXCEPTION TYPE cx_dynamic_check.
+            ENDIF.
+          ENDIF.
+
+          IF ls_row-fldtype = c_fieldtype_table.
+            APPEND VALUE #(
+              name = ls_row-fldname
+              type = cl_abap_tabledescr=>create( lr_line ) )
+              TO comp_tab.
+          ELSE.
+            APPEND VALUE #(
+              name = ls_row-fldname
+              type = lr_line )
+              TO comp_tab.
+          ENDIF.
+
+      ENDCASE.
+
+    ENDLOOP.
+
+  ENDMETHOD.
+
+
+  METHOD build_elem_descr.
+
+    " Returns a type descriptor for an elementary type specification
+    " (INTTY/LENGT/DECIM of the field description table).
+    " LENGT/DECIM are DDIC text-like fields and need explicit conversion
+    " for the numeric RTTS factory parameters.
+    DATA(lv_length) = CONV i( lengt ).
+    DATA(lv_decimals) = CONV i( decim ).
+
+    CASE intty.
+      WHEN 'P'.
+        descr = cl_abap_elemdescr=>get_p( p_length = lv_length p_decimals = lv_decimals ).
+      WHEN 'C'.
+        descr = cl_abap_elemdescr=>get_c( p_length = lv_length ).
+      WHEN 'N'.
+        descr = cl_abap_elemdescr=>get_n( p_length = lv_length ).
+      WHEN 'X'.
+        descr = cl_abap_elemdescr=>get_x( p_length = lv_length ).
+      WHEN 'g'.
+        descr = cl_abap_elemdescr=>get_string( ).
+      WHEN 'I'.
+        descr = cl_abap_elemdescr=>get_i( ).
+      WHEN 'F'.
+        descr = cl_abap_elemdescr=>get_f( ).
+      WHEN 'D'.
+        descr = cl_abap_elemdescr=>get_d( ).
+      WHEN 'T'.
+        descr = cl_abap_elemdescr=>get_t( ).
+      WHEN OTHERS.
+        descr ?= cl_abap_typedescr=>describe_by_name( intty ).
+    ENDCASE.
+
+  ENDMETHOD.
+
+ENDCLASS.

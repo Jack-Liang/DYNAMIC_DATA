@@ -17,10 +17,7 @@
     "skip": [
       {"object": "ZCL_DYNAMIC_OBJECT", "class": "ltcl_dynamic_type", "method": "packed_inferred", "note": "open-abap: cl_abap_elemdescr=>get_p is a todo stub"},
       {"object": "ZCL_DYNAMIC_OBJECT", "class": "ltcl_dynamic_type", "method": "table_line_typed_from_tab", "note": "open-abap: cl_abap_elemdescr=>get_p is a todo stub"},
-      {"object": "ZCL_DYNAMIC_OBJECT", "class": "ltcl_dynamic_type", "method": "create_data_inferred_values", "note": "open-abap: cl_abap_elemdescr=>get_p is a todo stub"},
-      {"object": "ZCL_DYNAMIC_OBJECT", "class": "ltcl_dynamic_type", "method": "deep_nested_struct", "note": "open-abap: SYSTEM_CALLSTACK stub -> depth always 0, nesting level >1 unsupported; passes on real system. Remove skip when TODO #2 drops the callstack hack"},
-      {"object": "ZCL_DYNAMIC_OBJECT", "class": "ltcl_dynamic_type", "method": "deep_nested_table_in_table", "note": "open-abap: SYSTEM_CALLSTACK stub -> depth always 0, nesting level >1 unsupported; passes on real system. Remove skip when TODO #2 drops the callstack hack"},
-      {"object": "ZCL_DYNAMIC_OBJECT", "class": "ltcl_dynamic_type", "method": "create_data_deep_nested", "note": "open-abap: SYSTEM_CALLSTACK stub -> depth always 0, nesting level >1 unsupported; passes on real system. Remove skip when TODO #2 drops the callstack hack"}
+      {"object": "ZCL_DYNAMIC_OBJECT", "class": "ltcl_dynamic_type", "method": "create_data_inferred_values", "note": "open-abap: cl_abap_elemdescr=>get_p is a todo stub"}
     ]
   }
 }

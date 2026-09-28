@@ -59,7 +59,17 @@
   （注明"删掉栈帧 hack 后移除"）。**真机已验证绿（2026-09-28）**——前置达成，可开始重构。
 - **线索**：树形 IR 方向本身没错；怀疑点集中在"本地类引用作 RETURNING 表 + LOOP INTO ref + 解引用"
   链路的某个 ABAP 语义。有本地测试后按二分法定位。
+  **考古结论（2026-09-28，git 历史 + 本地 CI 复现）**：与引用链路无关，真凶是四个叠加缺陷——
+  ①`lr_parent` 未按行清零（节点错挂）；②嵌套 struct create 无空回退（`empty_array_member` 必触发）；
+  ③段循环内 `sy-tabix` 被 `READ TABLE` 改写（内核上同为未定义行为）；④`boolc(false)` 返回空格，
+  `' ' = abap_false` 仅内核忽略尾部空格、open-abap 判 false（全部节点被误判 implicit 的直接原因）。
+  四项均已修复并有回归测试钉死。
 - **完成标准**：四个 hack 全部删除、类在调用之间完全无状态、全部单测绿、行为不变。
+  **进度（2026-09-28，本地全绿）**：重构完成——`lcl_tree_node`/`lcl_type_builder`（含四修复）进 locals_imp，
+  主类删掉 `gt_field_tab`/`build_from_rows`/`structural_sub`/`put_parent_field_first`/`append_field`
+  （596→288 行），44 用例 41 跑全绿 + 3 skip（get_p），深度嵌套三连在 CI 转绿（skip 已删），abaplint 0 issue。
+  行为差异（有意为之，见 CHANGELOG 3.1.0）：缺失父段→隐式 struct；非法名/空 struct 节点→`execution_failed`
+  而非 dump；带 `flag` 的入参行不再被丢弃。**待真机验证后合并**。
 
 ## 3. 反向序列化 to_json（ABAP → JSON）
 

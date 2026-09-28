@@ -2,6 +2,46 @@
 
 All notable changes to this project are documented in this file.
 
+## 3.1.0 - 2026-09-28
+
+### Changed
+
+- Tree based type building (restart of the reverted 2.2.0): the flat
+  field description rows are parsed into a node tree and the types are
+  generated bottom up. This removes the call stack depth detection
+  (`SYSTEM_CALLSTACK`), the flag consumption, the parent reordering
+  pass and the static `GT_FIELD_TAB` buffer - the class is now fully
+  stateless between calls.
+- The 2.2.0 on-system failure (`CX_SY_STRUCT_ATTRIBUTES` "The
+  component table is empty") is root-caused and fixed on four counts:
+  1. `lr_parent` was not cleared per source row, so nodes were
+     mis-parented under the previous row's last node and structures
+     lost their children,
+  2. the nested struct create had no empty fallback (an empty array
+     member triggered the exception),
+  3. `sy-tabix` was clobbered by the `READ TABLE` on the path map
+     inside the segment loop (replaced by an explicit counter),
+  4. `boolc( )` returns a blank for false and comparing it against
+     `abap_false` ignores trailing blanks only on the kernel - the
+     builder now tests positively against `abap_true`.
+
+### Added
+
+- Undeclared intermediate path segments (e.g. only `A-B` configured,
+  no `A` row) default to structures instead of leaking the child into
+  the parent level.
+- Invalid field names and empty struct nodes in `FIELD_TAB` now raise
+  `EXECUTION_FAILED` instead of dumping in the RTTS type creation;
+  rows with `FLAG` set are no longer silently skipped.
+
+### Tests
+
+- Recovered from 2.2.0: `implicit_parent_becomes_struct`,
+  `flat_pipeline_diagnosis`. New: `field_tab_out_of_order` (pins the
+  mis-parenting fix), `empty_struct_node_raises`.
+- The depth-2 nesting tests now also run in the transpiled CI (the
+  call stack hack they were skipped for is gone).
+
 ## 3.0.0 - 2026-09-28
 
 ### Breaking changes
