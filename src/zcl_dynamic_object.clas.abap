@@ -8,6 +8,15 @@ CLASS zcl_dynamic_object DEFINITION
     TYPES:
       ty_split TYPE TABLE OF string .
 
+    CONSTANTS:
+      BEGIN OF c_info,
+        version    TYPE string VALUE '2.0.0',
+        author     TYPE string VALUE 'Jack Liang',
+        email      TYPE string VALUE 'jack.liang.world@gmail.com',
+        repository TYPE string VALUE 'https://github.com/Jack-Liang/DYNAMIC_DATA',
+        license    TYPE string VALUE 'MIT',
+      END OF c_info .
+
     CLASS-METHODS create_main
       IMPORTING
         VALUE(field_tab) TYPE zdot_datadescr OPTIONAL

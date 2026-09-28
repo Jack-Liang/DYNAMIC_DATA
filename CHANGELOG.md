@@ -40,5 +40,7 @@ All notable changes to this project are documented in this file.
 - ABAP Unit test suite (parser, walker and `CREATE_MAIN` black box tests
   including regressions for all fixes above).
 - Demo / smoke test report `ZDYNAMIC_DATA_DEMO`.
+- Metadata constants `ZCL_DYNAMIC_OBJECT=>C_INFO` (version, author,
+  email, repository, license) for runtime self-description.
 - abaplint configuration (`abaplint.jsonc`, clean) and a GitHub Actions
   workflow running it.
