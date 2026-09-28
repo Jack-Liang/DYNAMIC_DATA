@@ -63,6 +63,16 @@
      <DESCRIPT>Add fields to the field list</DESCRIPT>
     </SEOCOMPOTX>
     <SEOCOMPOTX>
+     <CMPNAME>BUILD_ELEM_DESCR</CMPNAME>
+     <LANGU>1</LANGU>
+     <DESCRIPT>构造基本类型的类型描述符</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>BUILD_ELEM_DESCR</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Build a type descriptor for an elementary type</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
      <CMPNAME>CREATE_BY_FIELD_TAB</CMPNAME>
      <LANGU>1</LANGU>
      <DESCRIPT>根据字段列表创建动态数据对象</DESCRIPT>

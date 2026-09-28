@@ -57,6 +57,13 @@ CLASS zcl_dynamic_object DEFINITION
         !object   TYPE data
       CHANGING
         !comp_tab TYPE abap_component_tab .
+    CLASS-METHODS build_elem_descr
+      IMPORTING
+        !intty TYPE inttype
+        !lengt TYPE ilen
+        !decim TYPE decimals
+      RETURNING
+        VALUE(descr) TYPE REF TO cl_abap_datadescr .
     CLASS-METHODS structural_sub
       CHANGING
         !field_tab TYPE zdot_datadescr
@@ -87,6 +94,36 @@ CLASS zcl_dynamic_object IMPLEMENTATION.
 
     APPEND ls_comp TO comp_tab.
 
+
+  ENDMETHOD.
+
+
+  METHOD build_elem_descr.
+
+    " Returns a type descriptor for an elementary type specification
+    " (INTTY/LENGT/DECIM of the field description table)
+    CASE intty.
+      WHEN 'P'.
+        descr = cl_abap_elemdescr=>get_p( p_length = lengt p_decimals = decim ).
+      WHEN 'C'.
+        descr = cl_abap_elemdescr=>get_c( p_length = lengt ).
+      WHEN 'N'.
+        descr = cl_abap_elemdescr=>get_n( p_length = lengt ).
+      WHEN 'X'.
+        descr = cl_abap_elemdescr=>get_x( p_length = lengt ).
+      WHEN 'g'.
+        descr = cl_abap_elemdescr=>get_string( ).
+      WHEN 'I'.
+        descr = cl_abap_elemdescr=>get_i( ).
+      WHEN 'F'.
+        descr = cl_abap_elemdescr=>get_f( ).
+      WHEN 'D'.
+        descr = cl_abap_elemdescr=>get_d( ).
+      WHEN 'T'.
+        descr = cl_abap_elemdescr=>get_t( ).
+      WHEN OTHERS.
+        descr ?= cl_abap_typedescr=>describe_by_name( intty ).
+    ENDCASE.
 
   ENDMETHOD.
 
@@ -175,17 +212,12 @@ CLASS zcl_dynamic_object IMPLEMENTATION.
           ELSEIF <fs_datadescr>-intty IS NOT INITIAL.
             " 表类型但字段为基本类型（如 json 数组的元素类型推断）
             " Table whose line is an elementary type (e.g. inferred from a json array)
-            CASE <fs_datadescr>-intty.
-              WHEN 'P'.
-                CREATE DATA l_dyn_obj TYPE TABLE OF p
-                  LENGTH <fs_datadescr>-lengt DECIMALS <fs_datadescr>-decim.
-              WHEN 'C' OR 'N' OR 'X'.
-                CREATE DATA l_dyn_obj TYPE TABLE OF (<fs_datadescr>-intty) LENGTH <fs_datadescr>-lengt.
-              WHEN 'g'.
-                CREATE DATA l_dyn_obj TYPE TABLE OF string.
-              WHEN OTHERS.
-                CREATE DATA l_dyn_obj TYPE TABLE OF (<fs_datadescr>-intty).
-            ENDCASE.
+            lr_table = cl_abap_tabledescr=>create(
+              build_elem_descr( intty = <fs_datadescr>-intty
+                                lengt = <fs_datadescr>-lengt
+                                decim = <fs_datadescr>-decim ) ).
+
+            CREATE DATA l_dyn_obj TYPE HANDLE lr_table.
 
             append_field( EXPORTING fldname  = <fs_split>
                                     method   = c_des_methd-by_data_ref
