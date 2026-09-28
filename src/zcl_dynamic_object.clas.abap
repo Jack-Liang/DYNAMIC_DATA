@@ -408,6 +408,8 @@ METHOD create_data_by_json.
 
   DATA lt_nodes TYPE lcl_json_parser=>ty_nodes.
 
+  CLEAR: gt_field_tab.
+
   TRY.
       lt_nodes = lcl_json_parser=>parse( json_data ).
 
