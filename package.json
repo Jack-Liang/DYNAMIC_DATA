@@ -1,0 +1,10 @@
+{
+  "name": "dynamic-data-ci",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Transpiled ABAP Unit testing for zcl_dynamic_object (see bin/test.sh)",
+  "dependencies": {
+    "@abaplint/runtime": "2.13.93",
+    "@abaplint/transpiler-cli": "2.13.93"
+  }
+}

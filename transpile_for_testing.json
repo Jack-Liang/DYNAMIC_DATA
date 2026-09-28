@@ -1,0 +1,23 @@
+{
+  "input_folder": "ci-build/src",
+  "output_folder": "transpiled",
+  "libs": [
+    {
+      "url": "https://github.com/open-abap/open-abap-core"
+    }
+  ],
+  "write_unit_tests": true,
+  "write_source_map": true,
+  "options": {
+    "ignoreSyntaxCheck": false,
+    "addFilenames": true,
+    "addCommonJS": true,
+    "unknownTypes": "error",
+    "keywords": ["return", "in", "class"],
+    "skip": [
+      {"object": "ZCL_DYNAMIC_OBJECT", "class": "ltcl_dynamic_type", "method": "packed_inferred", "note": "open-abap: cl_abap_elemdescr=>get_p is a todo stub"},
+      {"object": "ZCL_DYNAMIC_OBJECT", "class": "ltcl_dynamic_type", "method": "table_line_typed_from_tab", "note": "open-abap: cl_abap_elemdescr=>get_p is a todo stub"},
+      {"object": "ZCL_DYNAMIC_OBJECT", "class": "ltcl_dynamic_type", "method": "create_data_inferred_values", "note": "open-abap: cl_abap_elemdescr=>get_p is a todo stub"}
+    ]
+  }
+}

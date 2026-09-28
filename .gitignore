@@ -1,1 +1,4 @@
 .zcodeignore
+node_modules/
+ci-build/
+transpiled/

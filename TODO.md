@@ -8,11 +8,31 @@
 
 - **背景**：目前 CI 只有 abaplint（静态检查）。多轮真机验证（pull → 激活 → SE80 跑测试）成本很高，
   本项目历史上多个 bug（CP 通配符、LENGTH 语义、静态表污染）都是靠真机测试才定位的。
-- **参考**：[sbcgua/ajson](https://github.com/sbcgua/ajson) 的 `transpile_for_testing.json` +
-  `.github/workflows/test.yml`，基于 [larshp/abap-transpiler](https://github.com/larshp/abap-transpiler)。
-- **先做 spike**：transpiler 对内核类 `cl_sxml_string_reader`（sXML）是否有模拟层是最大风险点，
-  先跑通一个现有测试用例（例如 `ltcl_json_parser=>parse_object`）验证可行性，再铺全量。
-- **完成标准**：push 后 CI 自动执行 `zcl_dynamic_object` 的 ABAP Unit 并保持绿色。
+- **参考**：[sbcgua/ajson](https://github.com/sbcgua/ajson) 的 `transpile_for_testing.json` + `bin/test.sh`，
+  工具链为 npm 包 `@abaplint/transpiler-cli` + `@abaplint/runtime`，lib 指向 [open-abap/open-abap-core](https://github.com/open-abap/open-abap-core)
+  （transpiler 原仓库 larshp/abap-transpiler 已迁移，旧链接 404）。
+- **spike 已完成（2026-09-28，本地 Node 24）**，结论：
+  - **可行**。18 个源文件全部转译通过（零语法错误、无 unknownTypes 报错），
+    全套 37 个测试方法中 **34 个绿**，包括全部 6 个 sXML parser 测试——
+    open-abap 的 sXML（`cl_sxml_string_reader` 纯 ABAP 实现）覆盖本项目用到的所有 API。
+  - **阻塞 1（3 个测试挂）**：`cl_abap_elemdescr=>get_p` 在 open-abap 是 `ASSERT 1 = 'todo'` 占位，
+    影响所有 P 类型推断测试（`packed_inferred` / `table_line_typed_from_tab` / `create_data_inferred_values`）。
+    治本方案是给 open-abap-core 提 PR 实现 get_p；过渡方案按 ajson 的 `skip` 机制先跳过。
+  - **阻塞 2（静默，无测试挂）**：`SYSTEM_CALLSTACK` 在 open-abap 有 stub 但只返回一行假帧，
+    `structural_sub` 的递归深度恒为 0。现有测试最深只有一层嵌套（恰好不受影响，全绿），
+    但**两层及以上嵌套在 CI 里会静默漏建字段**——当前测试套件没有两层嵌套用例，这是个覆盖缺口。
+  - **缺 3 个 SAP 内置 DTEL**：`INTTYPE` / `ILEN` / `DECIMALS` open-abap 未收录（unknownTypes 报错）。
+    spike 用 stub DTEL（char1 / numc6 / numc2）验证可行；正式方案：提给 open-abap-core 上游，
+    或 CI 时在临时目录合并 stub（不能进仓库 src，真机 abapGit 导入会与 SAP 内置对象冲突）。
+- **剩余步骤**：写 `.github/workflows/test.yml`（npm install → abap_transpile → node transpiled/index.mjs），
+  处理上述三个阻塞（skip / 上游 PR），合入后删除 spike 临时物（`%TEMP%/zdoe-spike/`）。
+- **完成标准**：push 后 CI 自动执行 `zcl_dynamic_object` 的 ABAP Unit 并保持绿色（或明确 skip 清单）。
+- **进度（2026-09-28）**：CI 基建已落地并本地端到端验证（`sh bin/test.sh`：34 绿 / 3 skip / exit 0）——
+  `bin/test.sh`（src+stub 合并到 `ci-build/` 后转译执行）、`ci/dtel-stubs/`（3 个 stub DTEL）、
+  `transpile_for_testing.json`（含 skip 清单）、`package.json`（锁定 2.13.93）、
+  `.github/workflows/test.yml`、`.gitignore`。待办：push 后确认首次 CI 运行；
+  向 open-abap-core 提 `get_p` 实现的 PR（合入后删除 3 个 skip）；
+  spike 临时目录已清理。
 
 ## 2. 树形类型构建重构（重启 2.2.0 失败的尝试）
 
@@ -24,6 +44,10 @@
 - **前置条件**：先完成 #1（本地能跑单测）。2.2.0 当时在真机上抛
   `CX_SY_STRUCT_ATTRIBUTES: The component table is empty` 且与源码矛盾、无法远程定位，最终回退
   （见 CHANGELOG 2.2.1）。
+- **新增前置（spike 发现）**：重构前先补一个**两层嵌套 JSON 的测试用例**并确认真机绿——
+  当前套件最深只有一层嵌套，而 CI 里 `SYSTEM_CALLSTACK` stub 使深度恒为 0，
+  两层嵌套路径目前既无真机用例覆盖、CI 也测不准（会静默漏字段）。重构恰好要删掉这个栈帧 hack，
+  这个用例同时守护重构前后行为。
 - **线索**：树形 IR 方向本身没错；怀疑点集中在"本地类引用作 RETURNING 表 + LOOP INTO ref + 解引用"
   链路的某个 ABAP 语义。有本地测试后按二分法定位。
 - **完成标准**：四个 hack 全部删除、类在调用之间完全无状态、全部单测绿、行为不变。
