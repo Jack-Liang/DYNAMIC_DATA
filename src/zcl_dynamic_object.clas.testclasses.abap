@@ -140,6 +140,7 @@ CLASS ltcl_dynamic_type DEFINITION FINAL
     METHODS create_data_array_root FOR TESTING.
     METHODS create_data_invalid_json FOR TESTING.
     METHODS walker_emits_typed_rows FOR TESTING RAISING zcx_dynamic_json_error zcx_dynamic_name_error.
+    METHODS elem_c_length_diagnosis FOR TESTING.
 
     METHODS build_by_json
       IMPORTING
@@ -577,6 +578,27 @@ CLASS ltcl_dynamic_type IMPLEMENTATION.
 
   ENDMETHOD.
 
+  METHOD elem_c_length_diagnosis.
+
+    " Bisects the FLAG C(2) issue: first the RTTS factory itself,
+    " then the public CREATE_MAIN path with an explicit C/1 row
+    cl_abap_unit_assert=>assert_equals(
+      exp = 1
+      act = cl_abap_elemdescr=>get_c( p_length = 1 )->length
+      msg = 'get_c(1) must produce length 1' ).
+
+    DATA(lo_struct) = CAST cl_abap_structdescr( build_by_field_tab(
+      field_tab = VALUE zdot_datadescr(
+                    ( fldname = 'FLAG' fldtype = 'F' intty = 'C' lengt = 1 ) )
+      type      = 'S' ) ).
+
+    cl_abap_unit_assert=>assert_equals(
+      exp = 1
+      act = CAST cl_abap_elemdescr( component( struct = lo_struct name = 'FLAG' ) )->length
+      msg = 'explicit C/1 field row must build C(1)' ).
+
+  ENDMETHOD.
+
   METHOD walker_emits_typed_rows.
 
     " Diagnostic: inspect the raw rows the walker produces, before any
@@ -678,9 +700,12 @@ CLASS ltcl_dynamic_type IMPLEMENTATION.
         invalid_field_name   = 5
         OTHERS               = 6.
 
+    " sy-subrc must be captured before any statement (also asserts)
+    " overwrites it
+    result = sy-subrc.
+
     " On a raised classic exception the returning value stays initial
     cl_abap_unit_assert=>assert_initial( act = lr_unused ).
-    result = sy-subrc.
 
   ENDMETHOD.
 
@@ -699,9 +724,12 @@ CLASS ltcl_dynamic_type IMPLEMENTATION.
         invalid_field_name   = 5
         OTHERS               = 6.
 
+    " sy-subrc must be captured before any statement (also asserts)
+    " overwrites it
+    result = sy-subrc.
+
     " On a raised classic exception the returning value stays initial
     cl_abap_unit_assert=>assert_initial( act = lr_unused ).
-    result = sy-subrc.
 
   ENDMETHOD.
 
@@ -721,9 +749,12 @@ CLASS ltcl_dynamic_type IMPLEMENTATION.
         invalid_field_name   = 5
         OTHERS               = 6.
 
+    " sy-subrc must be captured before any statement (also asserts)
+    " overwrites it
+    result = sy-subrc.
+
     " On a raised classic exception the returning value stays initial
     cl_abap_unit_assert=>assert_initial( act = lr_unused ).
-    result = sy-subrc.
 
   ENDMETHOD.
 
