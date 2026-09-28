@@ -2,6 +2,25 @@
 
 All notable changes to this project are documented in this file.
 
+## 3.0.0 - 2026-09-28
+
+### Breaking changes
+
+- `CREATE_MAIN` and `CREATE_DATA` are replaced by focused methods with
+  parameter sets that fully apply to each path:
+  - `CREATE_BY_FIELD_TAB( field_tab, type )` - type from a field
+    description table, raises `UNSUPPORTED_TYPE` unless the root type
+    is `S` or `T`
+  - `CREATE_BY_JSON( json_data, infer_types, name_map )` - type from JSON
+  - `CREATE_DATA_BY_JSON( json_data, infer_types, name_map )` - filled
+    data object from JSON in one step
+- `NO_TYPE` (double negative) is replaced by `INFER_TYPES`
+  (`abap_false` by default = everything string, same behavior as before)
+- empty or blank JSON now raises `INVALID_JSON` instead of
+  `UNSUPPORTED_TYPE`; the JSON methods no longer declare
+  `UNSUPPORTED_TYPE`
+- `TY_SPLIT` moved from the public to the private section
+
 ## 2.3.0 - 2026-09-28
 
 ### Added

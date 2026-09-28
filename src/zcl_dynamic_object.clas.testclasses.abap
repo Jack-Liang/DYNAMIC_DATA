@@ -132,7 +132,7 @@ CLASS ltcl_dynamic_type DEFINITION FINAL
     METHODS dash_in_key_raises FOR TESTING.
     METHODS long_key_raises FOR TESTING.
     METHODS duplicate_after_uppercase FOR TESTING.
-    METHODS empty_input_raises_unsupported FOR TESTING.
+    METHODS invalid_root_type_raises FOR TESTING.
     METHODS metadata_constants FOR TESTING.
     METHODS create_data_fills_values FOR TESTING.
     METHODS create_data_inferred_values FOR TESTING.
@@ -148,17 +148,17 @@ CLASS ltcl_dynamic_type DEFINITION FINAL
 
     METHODS build_by_json
       IMPORTING
-        json     TYPE string
-        no_type  TYPE c DEFAULT abap_true
-        name_map TYPE zcl_dynamic_object=>ty_name_map OPTIONAL
+        json        TYPE string
+        infer_types TYPE abap_bool DEFAULT abap_false
+        name_map    TYPE zcl_dynamic_object=>ty_name_map OPTIONAL
       RETURNING
         VALUE(result) TYPE REF TO cl_abap_datadescr.
 
     METHODS build_data_by_json
       IMPORTING
-        json     TYPE string
-        no_type  TYPE c DEFAULT abap_true
-        name_map TYPE zcl_dynamic_object=>ty_name_map OPTIONAL
+        json        TYPE string
+        infer_types TYPE abap_bool DEFAULT abap_false
+        name_map    TYPE zcl_dynamic_object=>ty_name_map OPTIONAL
       RETURNING
         VALUE(result) TYPE REF TO data.
 
@@ -185,6 +185,7 @@ CLASS ltcl_dynamic_type DEFINITION FINAL
     METHODS create_field_tab_subrc
       IMPORTING
         field_tab TYPE zdot_datadescr
+        type      TYPE zdoe_fldtype DEFAULT 'S'
       RETURNING
         VALUE(result) TYPE i.
 
@@ -265,7 +266,7 @@ CLASS ltcl_dynamic_type IMPLEMENTATION.
     " Regression: initial values used to be dropped by IS NOT INITIAL checks
     DATA(lo_struct) = CAST cl_abap_structdescr( build_by_json(
       json    = `{"price": 0, "note": ""}`
-      no_type = abap_false ) ).
+      infer_types = abap_true ) ).
 
     cl_abap_unit_assert=>assert_equals(
       exp = cl_abap_typedescr=>typekind_int
@@ -296,7 +297,7 @@ CLASS ltcl_dynamic_type IMPLEMENTATION.
 
     DATA(lo_struct) = CAST cl_abap_structdescr( build_by_json(
       json    = `{"level": 95}`
-      no_type = abap_false ) ).
+      infer_types = abap_true ) ).
 
     cl_abap_unit_assert=>assert_equals(
       exp = cl_abap_typedescr=>typekind_int
@@ -308,7 +309,7 @@ CLASS ltcl_dynamic_type IMPLEMENTATION.
 
     DATA(lo_struct) = CAST cl_abap_structdescr( build_by_json(
       json    = `{"price": 88.5}`
-      no_type = abap_false ) ).
+      infer_types = abap_true ) ).
 
     DATA(lo_elem) = CAST cl_abap_elemdescr( component( struct = lo_struct name = 'PRICE' ) ).
     cl_abap_unit_assert=>assert_equals(
@@ -326,7 +327,7 @@ CLASS ltcl_dynamic_type IMPLEMENTATION.
 
     DATA(lo_struct) = CAST cl_abap_structdescr( build_by_json(
       json    = `{"flag": true}`
-      no_type = abap_false ) ).
+      infer_types = abap_true ) ).
 
     DATA(lo_elem) = CAST cl_abap_elemdescr( component( struct = lo_struct name = 'FLAG' ) ).
     cl_abap_unit_assert=>assert_equals(
@@ -355,7 +356,7 @@ CLASS ltcl_dynamic_type IMPLEMENTATION.
 
     DATA(lo_struct) = CAST cl_abap_structdescr( build_by_json(
       json    = `{"x": null}`
-      no_type = abap_false ) ).
+      infer_types = abap_true ) ).
 
     cl_abap_unit_assert=>assert_bound( component( struct = lo_struct name = 'X' ) ).
     assert_string_kind( component( struct = lo_struct name = 'X' ) ).
@@ -366,7 +367,7 @@ CLASS ltcl_dynamic_type IMPLEMENTATION.
 
     DATA(lo_struct) = CAST cl_abap_structdescr( build_by_json(
       json    = `{"points": [10, 20]}`
-      no_type = abap_false ) ).
+      infer_types = abap_true ) ).
 
     cl_abap_unit_assert=>assert_equals(
       exp = cl_abap_typedescr=>typekind_int
@@ -379,7 +380,7 @@ CLASS ltcl_dynamic_type IMPLEMENTATION.
     " Different keys across items are unioned into the line structure
     DATA(lo_descr) = build_by_json(
       json    = `[{"a": 1}, {"b": "x"}]`
-      no_type = abap_false ).
+      infer_types = abap_true ).
 
     DATA(lo_struct) = CAST cl_abap_structdescr( table_line( lo_descr ) ).
     cl_abap_unit_assert=>assert_equals( exp = 2 act = lines( lo_struct->get_components( ) ) ).
@@ -414,7 +415,7 @@ CLASS ltcl_dynamic_type IMPLEMENTATION.
     DATA(lv_subrc) = create_json_subrc( `{` ).
 
     cl_abap_unit_assert=>assert_equals(
-      exp = 4
+      exp = 1
       act = lv_subrc
       msg = 'invalid_json expected' ).
 
@@ -425,7 +426,7 @@ CLASS ltcl_dynamic_type IMPLEMENTATION.
     DATA(lv_subrc) = create_json_subrc( `{"a b": 1}` ).
 
     cl_abap_unit_assert=>assert_equals(
-      exp = 5
+      exp = 2
       act = lv_subrc
       msg = 'invalid_field_name expected' ).
 
@@ -437,7 +438,7 @@ CLASS ltcl_dynamic_type IMPLEMENTATION.
     DATA(lv_subrc) = create_json_subrc( `{"a-b": 1}` ).
 
     cl_abap_unit_assert=>assert_equals(
-      exp = 5
+      exp = 2
       act = lv_subrc
       msg = 'invalid_field_name expected' ).
 
@@ -448,7 +449,7 @@ CLASS ltcl_dynamic_type IMPLEMENTATION.
     DATA(lv_subrc) = create_json_subrc( `{"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA": 1}` ).
 
     cl_abap_unit_assert=>assert_equals(
-      exp = 5
+      exp = 2
       act = lv_subrc
       msg = 'invalid_field_name expected for 34 char key' ).
 
@@ -469,12 +470,21 @@ CLASS ltcl_dynamic_type IMPLEMENTATION.
 
   ENDMETHOD.
 
-  METHOD empty_input_raises_unsupported.
+  METHOD invalid_root_type_raises.
+
+    " A FIELD_TAB root type other than S/T is rejected
+    DATA(lt_rows) = VALUE zdot_datadescr(
+      ( fldname = 'A' fldtype = 'F' ) ).
 
     cl_abap_unit_assert=>assert_equals(
-      exp = 1
+      exp = 1 " unsupported_type
+      act = create_field_tab_subrc( field_tab = lt_rows type = 'F' )
+      msg = 'unsupported_type expected for root type F' ).
+
+    cl_abap_unit_assert=>assert_equals(
+      exp = 1 " invalid_json
       act = create_json_subrc( `` )
-      msg = 'unsupported_type expected' ).
+      msg = 'invalid_json expected for empty json' ).
 
   ENDMETHOD.
 
@@ -531,7 +541,7 @@ CLASS ltcl_dynamic_type IMPLEMENTATION.
 
     DATA(lr_data) = build_data_by_json(
       json    = `{"level": 95, "price": 88.5, "flag": true}`
-      no_type = abap_false ).
+      infer_types = abap_true ).
 
     ASSIGN lr_data->* TO FIELD-SYMBOL(<wa>).
 
@@ -550,7 +560,7 @@ CLASS ltcl_dynamic_type IMPLEMENTATION.
 
     DATA(lr_data) = build_data_by_json(
       json    = `{"flag": false, "note": null}`
-      no_type = abap_false ).
+      infer_types = abap_true ).
 
     ASSIGN lr_data->* TO FIELD-SYMBOL(<wa>).
 
@@ -566,7 +576,7 @@ CLASS ltcl_dynamic_type IMPLEMENTATION.
 
     DATA(lr_data) = build_data_by_json(
       json    = `[10, 20]`
-      no_type = abap_false ).
+      infer_types = abap_true ).
 
     ASSIGN lr_data->* TO FIELD-SYMBOL(<table>).
     cl_abap_unit_assert=>assert_equals( exp = 2 act = lines( <table> ) ).
@@ -586,7 +596,7 @@ CLASS ltcl_dynamic_type IMPLEMENTATION.
   METHOD create_data_invalid_json.
 
     cl_abap_unit_assert=>assert_equals(
-      exp = 4 " invalid_json
+      exp = 1 " invalid_json
       act = create_data_subrc( `{` )
       msg = 'invalid_json expected' ).
 
@@ -633,7 +643,7 @@ CLASS ltcl_dynamic_type IMPLEMENTATION.
 
     DATA(lo_struct) = CAST cl_abap_structdescr( build_by_json(
       json     = `{"aVeryLongJsonKeyNameThatExceedsThirtyCharactersXyz": 1}`
-      no_type  = abap_false
+      infer_types = abap_true
       name_map = lt_map ) ).
 
     cl_abap_unit_assert=>assert_equals(
@@ -650,7 +660,7 @@ CLASS ltcl_dynamic_type IMPLEMENTATION.
       ( json = 'X' abap = 'THIS_TARGET_NAME_IS_DEFINITELY_TOO_LONG_XYZ' ) ).
 
     cl_abap_unit_assert=>assert_equals(
-      exp = 5 " invalid_field_name
+      exp = 2 " invalid_field_name
       act = create_json_subrc( json = `{"x": 1}` name_map = lt_map )
       msg = 'invalid_field_name expected for over long mapping target' ).
 
@@ -662,7 +672,7 @@ CLASS ltcl_dynamic_type IMPLEMENTATION.
       ( json = 'X' abap = 'A-B' ) ).
 
     cl_abap_unit_assert=>assert_equals(
-      exp = 5 " invalid_field_name
+      exp = 2 " invalid_field_name
       act = create_json_subrc( json = `{"x": 1}` name_map = lt_map )
       msg = 'invalid_field_name expected for mapping target with dash' ).
 
@@ -712,28 +722,27 @@ CLASS ltcl_dynamic_type IMPLEMENTATION.
 
   METHOD build_by_json.
 
-    CALL METHOD zcl_dynamic_object=>create_main
+    CALL METHOD zcl_dynamic_object=>create_by_json
       EXPORTING
         json_data            = json
-        no_type              = no_type
+        infer_types          = infer_types
         name_map             = name_map
       RECEIVING
         ref_type             = result
       EXCEPTIONS
-        unsupported_type     = 1
-        execution_failed     = 2
+        invalid_json         = 1
+        invalid_field_name   = 2
         duplicate_components = 3
-        invalid_json         = 4
-        invalid_field_name   = 5
-        OTHERS               = 6.
+        execution_failed     = 4
+        OTHERS               = 5.
 
-    cl_abap_unit_assert=>assert_subrc( msg = |create_main failed for: { json }| ).
+    cl_abap_unit_assert=>assert_subrc( msg = |create_by_json failed for: { json }| ).
 
   ENDMETHOD.
 
   METHOD build_by_field_tab.
 
-    CALL METHOD zcl_dynamic_object=>create_main
+    CALL METHOD zcl_dynamic_object=>create_by_field_tab
       EXPORTING
         field_tab            = field_tab
         type                 = type
@@ -743,49 +752,45 @@ CLASS ltcl_dynamic_type IMPLEMENTATION.
         unsupported_type     = 1
         execution_failed     = 2
         duplicate_components = 3
-        invalid_json         = 4
-        invalid_field_name   = 5
-        OTHERS               = 6.
+        OTHERS               = 4.
 
-    cl_abap_unit_assert=>assert_subrc( msg = 'create_main failed for field_tab' ).
+    cl_abap_unit_assert=>assert_subrc( msg = 'create_by_field_tab failed for field_tab' ).
 
   ENDMETHOD.
 
   METHOD build_data_by_json.
 
-    CALL METHOD zcl_dynamic_object=>create_data
+    CALL METHOD zcl_dynamic_object=>create_data_by_json
       EXPORTING
         json_data          = json
-        no_type            = no_type
+        infer_types        = infer_types
         name_map           = name_map
       RECEIVING
         ref_data           = result
       EXCEPTIONS
-        unsupported_type     = 1
-        execution_failed     = 2
+        invalid_json         = 1
+        invalid_field_name   = 2
         duplicate_components = 3
-        invalid_json         = 4
-        invalid_field_name   = 5
-        OTHERS               = 6.
+        execution_failed     = 4
+        OTHERS               = 5.
 
-    cl_abap_unit_assert=>assert_subrc( msg = |create_data failed for: { json }| ).
+    cl_abap_unit_assert=>assert_subrc( msg = |create_data_by_json failed for: { json }| ).
 
   ENDMETHOD.
 
   METHOD create_data_subrc.
 
-    CALL METHOD zcl_dynamic_object=>create_data
+    CALL METHOD zcl_dynamic_object=>create_data_by_json
       EXPORTING
         json_data          = json
       RECEIVING
         ref_data           = DATA(lr_unused)
       EXCEPTIONS
-        unsupported_type     = 1
-        execution_failed     = 2
+        invalid_json         = 1
+        invalid_field_name   = 2
         duplicate_components = 3
-        invalid_json         = 4
-        invalid_field_name   = 5
-        OTHERS               = 6.
+        execution_failed     = 4
+        OTHERS               = 5.
 
     " sy-subrc must be captured before any statement (also asserts)
     " overwrites it
@@ -798,19 +803,18 @@ CLASS ltcl_dynamic_type IMPLEMENTATION.
 
   METHOD create_json_subrc.
 
-    CALL METHOD zcl_dynamic_object=>create_main
+    CALL METHOD zcl_dynamic_object=>create_by_json
       EXPORTING
         json_data            = json
         name_map             = name_map
       RECEIVING
         ref_type             = DATA(lr_unused)
       EXCEPTIONS
-        unsupported_type     = 1
-        execution_failed     = 2
+        invalid_json         = 1
+        invalid_field_name   = 2
         duplicate_components = 3
-        invalid_json         = 4
-        invalid_field_name   = 5
-        OTHERS               = 6.
+        execution_failed     = 4
+        OTHERS               = 5.
 
     " sy-subrc must be captured before any statement (also asserts)
     " overwrites it
@@ -823,19 +827,17 @@ CLASS ltcl_dynamic_type IMPLEMENTATION.
 
   METHOD create_field_tab_subrc.
 
-    CALL METHOD zcl_dynamic_object=>create_main
+    CALL METHOD zcl_dynamic_object=>create_by_field_tab
       EXPORTING
         field_tab            = field_tab
-        type                 = 'S'
+        type                 = type
       RECEIVING
         ref_type             = DATA(lr_unused)
       EXCEPTIONS
         unsupported_type     = 1
         execution_failed     = 2
         duplicate_components = 3
-        invalid_json         = 4
-        invalid_field_name   = 5
-        OTHERS               = 6.
+        OTHERS               = 4.
 
     " sy-subrc must be captured before any statement (also asserts)
     " overwrites it

@@ -6,9 +6,6 @@ CLASS zcl_dynamic_object DEFINITION
   PUBLIC SECTION.
 
     TYPES:
-      ty_split TYPE TABLE OF string .
-
-    TYPES:
       BEGIN OF ty_name_map_entry,
         json TYPE string,
         abap TYPE string,
@@ -17,38 +14,45 @@ CLASS zcl_dynamic_object DEFINITION
 
     CONSTANTS:
       BEGIN OF c_info,
-        version    TYPE string VALUE '2.3.0',
+        version    TYPE string VALUE '3.0.0',
         author     TYPE string VALUE 'Jack Liang',
         email      TYPE string VALUE 'jack.liang.world@gmail.com',
         repository TYPE string VALUE 'https://github.com/Jack-Liang/DYNAMIC_DATA',
         license    TYPE string VALUE 'MIT',
       END OF c_info .
 
-    CLASS-METHODS create_main
+    CLASS-METHODS create_by_field_tab
       IMPORTING
-        VALUE(field_tab) TYPE zdot_datadescr OPTIONAL
-        VALUE(type)      TYPE zdoe_fldtype OPTIONAL
-        VALUE(json_data) TYPE string OPTIONAL
-        VALUE(no_type)   TYPE c DEFAULT abap_true
-        VALUE(name_map)  TYPE ty_name_map OPTIONAL
+        VALUE(field_tab) TYPE zdot_datadescr
+        VALUE(type)      TYPE zdoe_fldtype
       RETURNING
         VALUE(ref_type)  TYPE REF TO cl_abap_datadescr
       EXCEPTIONS
         unsupported_type
         execution_failed
+        duplicate_components .
+
+    CLASS-METHODS create_by_json
+      IMPORTING
+        VALUE(json_data)  TYPE string
+        VALUE(infer_types) TYPE abap_bool DEFAULT abap_false
+        VALUE(name_map)   TYPE ty_name_map OPTIONAL
+      RETURNING
+        VALUE(ref_type)   TYPE REF TO cl_abap_datadescr
+      EXCEPTIONS
+        execution_failed
         duplicate_components
         invalid_json
         invalid_field_name .
 
-    CLASS-METHODS create_data
+    CLASS-METHODS create_data_by_json
       IMPORTING
-        VALUE(json_data) TYPE string
-        VALUE(no_type)   TYPE c DEFAULT abap_true
-        VALUE(name_map)  TYPE ty_name_map OPTIONAL
+        VALUE(json_data)  TYPE string
+        VALUE(infer_types) TYPE abap_bool DEFAULT abap_false
+        VALUE(name_map)   TYPE ty_name_map OPTIONAL
       RETURNING
-        VALUE(ref_data)  TYPE REF TO data
+        VALUE(ref_data)   TYPE REF TO data
       EXCEPTIONS
-        unsupported_type
         execution_failed
         duplicate_components
         invalid_json
@@ -57,6 +61,9 @@ CLASS zcl_dynamic_object DEFINITION
 
 
   PRIVATE SECTION.
+
+    TYPES:
+      ty_split TYPE TABLE OF string .
 
     CLASS-DATA gt_field_tab TYPE zdot_datadescr .
     CONSTANTS:
@@ -73,7 +80,7 @@ CLASS zcl_dynamic_object DEFINITION
         by_data_ref   TYPE string VALUE 'DESCRIBE_BY_DATA_REF',
       END OF c_des_methd .
 
-    CLASS-METHODS create_by_field_tab
+    CLASS-METHODS build_from_rows
       IMPORTING
         VALUE(type)     TYPE zdoe_fldtype
       EXPORTING
@@ -179,7 +186,7 @@ CLASS zcl_dynamic_object IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD create_by_field_tab.
+  METHOD build_from_rows.
 
     DATA lt_datadescr TYPE zdot_datadescr.
     DATA lt_split TYPE TABLE OF string.
@@ -270,9 +277,9 @@ CLASS zcl_dynamic_object IMPLEMENTATION.
 
             structural_sub( CHANGING field_tab = lt_datadescr split_tab = lt_split ).
 
-            create_by_field_tab( EXPORTING type      = <fs_datadescr>-fldtype
-                                 IMPORTING ref_data  = l_dyn_obj         "创建一个类型 Create a type
-                                 CHANGING  field_tab = lt_datadescr ).
+            build_from_rows( EXPORTING type      = <fs_datadescr>-fldtype
+                             IMPORTING ref_data  = l_dyn_obj         "创建一个类型 Create a type
+                             CHANGING  field_tab = lt_datadescr ).
 
             append_field( EXPORTING fldname  = <fs_split>
                                     method   = c_des_methd-by_data_ref
@@ -312,59 +319,22 @@ CLASS zcl_dynamic_object IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD create_main.
+  METHOD create_by_field_tab.
 *&----------------------------------------------------------------------------
-*&
-*&    Desecription:
-*&        This repository is mainly used for dynamically creating nested data types within the program
-*&        Project Address https://github.com/Jack-Liang/DYNAMIC_DATA
-*&        Please abide by the  MIT license of this project
-*&        Welcome to provide new features to this repository
-*&    Author         :   Jack.Liang
-*&    Create Date:   January 20, 2025
-*&    Program contact:   jack.liang.world@gmail.com
-*&----------------------------------------------------------------------------
-*&    Overview
-*&
-*&----------------------------------------------------------------------------
-*&    Change List
-*&    change NO.    Change Date    Change User    Change Detail
-*&
+*&    Create the type from a field description table.
+*&    Project Address https://github.com/Jack-Liang/DYNAMIC_DATA (MIT)
+*&    Author: Jack.Liang, Create Date: January 20, 2025
 *&----------------------------------------------------------------------------
 
-  CLEAR: gt_field_tab.
-
-  "Entry check
-  "入参检查
-  IF json_data IS INITIAL
-    AND ( type <> field_type-struct AND type <> field_type-table ).
+  IF type <> field_type-struct AND type <> field_type-table.
     RAISE unsupported_type.
   ENDIF.
 
-  IF json_data IS NOT INITIAL.
-    " JSON -> field description table, parsed with the kernel sXML library
-    " (see the local classes in the LOCALS_IMP include)
-    TRY.
-        lcl_json_walker=>walk( EXPORTING json        = json_data
-                                         infer_types = boolc( no_type <> abap_true )
-                                         name_map    = normalize_name_map( name_map )
-                               IMPORTING root_type      = type
-                                         root_is_array   = DATA(lv_root_is_array)
-                                         rows            = gt_field_tab ).
-      CATCH zcx_dynamic_json_error.
-        RAISE invalid_json.
-      CATCH zcx_dynamic_name_error.
-        RAISE invalid_field_name.
-    ENDTRY.
-  ELSE.
-    gt_field_tab[] = field_tab[].
-  ENDIF.
+  gt_field_tab = field_tab.
 
-  "CREATE TYPE
-  "创建类型
   CALL METHOD build_type
     EXPORTING
-      root_is_array        = lv_root_is_array
+      root_is_array        = abap_false
     CHANGING
       type                 = type
     RECEIVING
@@ -383,7 +353,51 @@ CLASS zcl_dynamic_object IMPLEMENTATION.
 ENDMETHOD.
 
 
-METHOD create_data.
+  METHOD create_by_json.
+*&----------------------------------------------------------------------------
+*&    Create the type from JSON, parsed with the kernel sXML library
+*&    (see the local classes in the LOCALS_IMP include).
+*&----------------------------------------------------------------------------
+
+  DATA lv_type TYPE zdoe_fldtype.
+
+  CLEAR: gt_field_tab.
+
+  TRY.
+      lcl_json_walker=>walk( EXPORTING json        = json_data
+                                       infer_types = infer_types
+                                       name_map    = normalize_name_map( name_map )
+                             IMPORTING root_type      = lv_type
+                                       root_is_array   = DATA(lv_root_is_array)
+                                       rows            = gt_field_tab ).
+    CATCH zcx_dynamic_json_error.
+      RAISE invalid_json.
+    CATCH zcx_dynamic_name_error.
+      RAISE invalid_field_name.
+  ENDTRY.
+
+  CALL METHOD build_type
+    EXPORTING
+      root_is_array        = lv_root_is_array
+    CHANGING
+      type                 = lv_type
+    RECEIVING
+      ref_type             = ref_type
+    EXCEPTIONS
+      duplicate_components = 1
+      execution_failed     = 2
+      OTHERS               = 3.
+
+  IF sy-subrc = 1.
+    RAISE duplicate_components.
+  ELSEIF sy-subrc <> 0.
+    RAISE execution_failed.
+  ENDIF.
+
+ENDMETHOD.
+
+
+METHOD create_data_by_json.
 *&----------------------------------------------------------------------------
 *&    One step JSON -> generated type + filled data object.
 *&    The JSON is parsed once with the kernel sXML library, the type is
@@ -392,21 +406,17 @@ METHOD create_data.
 *&    side (booleans become 'X'/initial, null stays initial).
 *&----------------------------------------------------------------------------
 
-  CLEAR: gt_field_tab.
-
-  IF json_data IS INITIAL.
-    RAISE unsupported_type.
-  ENDIF.
+  DATA lt_nodes TYPE lcl_json_parser=>ty_nodes.
 
   TRY.
-      DATA(lt_nodes) = lcl_json_parser=>parse( json_data ).
+      lt_nodes = lcl_json_parser=>parse( json_data ).
 
       DATA(lt_name_map) = normalize_name_map( name_map ).
 
       lcl_json_walker=>walk_nodes(
         EXPORTING
           nodes       = lt_nodes
-          infer_types = boolc( no_type <> abap_true )
+          infer_types = infer_types
           name_map    = lt_name_map
         IMPORTING
           root_type     = DATA(lv_type)
@@ -470,9 +480,9 @@ ENDMETHOD.
 
     "CREATE TYPE
     "创建类型
-    create_by_field_tab( EXPORTING type      = type
-                         IMPORTING ref_type  = ref_type
-                         CHANGING  field_tab = gt_field_tab ).
+    build_from_rows( EXPORTING type      = type
+                     IMPORTING ref_type  = ref_type
+                     CHANGING  field_tab = gt_field_tab ).
 
   ENDMETHOD.
 
@@ -490,7 +500,7 @@ ENDMETHOD.
       IMPORTING
         callstack = lt_callstack.
 
-    DELETE lt_callstack WHERE blockname <> 'CREATE_BY_FIELD_TAB'.
+    DELETE lt_callstack WHERE blockname <> 'BUILD_FROM_ROWS'.
     DATA(lv_depth) = lines( lt_callstack ) - 1.
 
     LOOP AT gt_field_tab ASSIGNING FIELD-SYMBOL(<fs_datadescr>)

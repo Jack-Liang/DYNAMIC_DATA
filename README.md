@@ -27,7 +27,7 @@ A runnable demo / smoke test report `ZDYNAMIC_DATA_DEMO` covering the examples b
   INSERT VALUE #( fldname = 'skills-name'  fldtype = 'F' )        INTO lt_field_tab INDEX 4.  "Using ‘-’ to connect superior and subordinate fields
   INSERT VALUE #( fldname = 'skills-level' fldtype = 'F' ) INTO lt_field_tab INDEX 5.
   
-  lr_type = zcl_dynamic_object=>create_main( field_tab = lt_field_tab  type = 'S' ).
+  lr_type = zcl_dynamic_object=>create_by_field_tab( field_tab = lt_field_tab type = 'S' ).
   
   TRY.
       CREATE DATA dyn_data TYPE HANDLE lr_type.
@@ -59,7 +59,7 @@ JSON 解析基于内核的 `sXML` 库实现，类型生成本身**不依赖任�
                '"skills": [ { "name": "ABAP", "level": 95 }, { "name": "JSON", "level": 88 }, { "name": "Coffee", "level": 100 } ] }'.
 
 
-  lr_type = zcl_dynamic_object=>create_main( JSON_DATA = json_data ).
+  lr_type = zcl_dynamic_object=>create_by_json( json_data = json_data ).
   
   TRY.
       CREATE DATA dyn_data TYPE HANDLE lr_type.
@@ -73,18 +73,19 @@ JSON 解析基于内核的 `sXML` 库实现，类型生成本身**不依赖任�
   ENDTRY.
 ```
    
-Since v2.1.0 you can also get a **filled data object in one step** — the JSON is parsed once and no JSON binder is needed on the caller side (booleans become `X`/initial, `null` stays initial). 自 v2.1.0 起也可以**一步拿到填好值的数据对象**——JSON 只解析一次，调用方不再需要任何 JSON 反序列化组件（布尔值填 `X`/初始，`null` 保持初始）：
+You can also get a **filled data object in one step** — the JSON is parsed once and no JSON binder is needed on the caller side (booleans become `X`/initial, `null` stays initial). 也可以**一步拿到填好值的数据对象**——JSON 只解析一次，调用方不再需要任何 JSON 反序列化组件（布尔值填 `X`/初始，`null` 保持初始）：
 
 ```ABAP
   DATA dyn_data TYPE REF TO data.
   FIELD-SYMBOLS: <fs_wa> TYPE any.
 
-  dyn_data = zcl_dynamic_object=>create_data( json_data = json_data no_type = '' ).
+  dyn_data = zcl_dynamic_object=>create_data_by_json( json_data   = json_data
+                                                       infer_types = abap_true ).
 
   ASSIGN dyn_data->* TO <fs_wa>.  "<fs_wa> already contains the values 已填好值
 ```
 
-> Note: to handle the classic exceptions (`INVALID_JSON` etc.) use the `CALL METHOD ... EXCEPTIONS` form, same as with `CREATE_MAIN`. 注：如需处理经典异常（`INVALID_JSON` 等），与 `CREATE_MAIN` 一样使用 `CALL METHOD ... EXCEPTIONS` 调用形式。
+> Note: to handle the classic exceptions (`INVALID_JSON` etc.) use the `CALL METHOD ... EXCEPTIONS` form. 注：如需处理经典异常（`INVALID_JSON` 等），使用 `CALL METHOD ... EXCEPTIONS` 调用形式。
 
 ### Usage 3 Created by basic type  通过基本类型创建
 
@@ -104,9 +105,9 @@ JSON key 超过 30 位（或不能作为 ABAP 组件名）时，可以通过 `NA
   DATA(lt_map) = VALUE zcl_dynamic_object=>ty_name_map(
     ( json = 'aVeryLongJsonKeyNameThatExceedsThirtyCharactersXyz' abap = 'SHORT_NAME' ) ).
 
-  lr_type = zcl_dynamic_object=>create_main( json_data = json_data
-                                             no_type   = ''
-                                             name_map  = lt_map ).
+  lr_type = zcl_dynamic_object=>create_by_json( json_data   = json_data
+                                                infer_types = abap_true
+                                                name_map    = lt_map ).
   " components: SHORT_NAME instead of the 50 character key
 ```
 
@@ -114,7 +115,7 @@ JSON key 超过 30 位（或不能作为 ABAP 组件名）时，可以通过 `NA
 
 This is a new project. The author cannot guarantee that it will always run correctly. Therefore, please test it thoroughly before using it in a production environment.
 
-If you pass `NO_TYPE = ''` to CREATE_MAIN when generating via json, the program will infer the possible data types based on json:
+If you pass `INFER_TYPES = abap_true` to CREATE_BY_JSON / CREATE_DATA_BY_JSON, the program will infer the possible data types based on json:
 
 | JSON | Inferred ABAP type |
 | --- | --- |
@@ -129,7 +130,7 @@ Errors are reported through the classic exceptions `INVALID_JSON` (unparsable JS
 
 这是一个新项目。作者不能保证它总是正确运行。因此，在将其用于生产环境之前，请对其进行彻底的测试。
 
-如果在通过 json 生成时，给 CREATE_MAIN 传入 `NO_TYPE = ''`，程序将根据 json 推断可能的数据类型，规则见上表；推断不出类型的值一律按 `string` 处理。解析失败会抛出经典异常 `INVALID_JSON`（无效 JSON）和 `INVALID_FIELD_NAME`（字段名超过 30 位、含 `A-Z 0-9 _` 之外的字符、以数字开头，或包含层级分隔符 `-`）。
+通过 json 生成时，给 `CREATE_BY_JSON` / `CREATE_DATA_BY_JSON` 传入 `INFER_TYPES = abap_true`，程序将根据 json 推断可能的数据类型，规则见上表；推断不出类型的值一律按 `string` 处理。解析失败会抛出经典异常 `INVALID_JSON`（无效 JSON）和 `INVALID_FIELD_NAME`（字段名超过 30 位、含 `A-Z 0-9 _` 之外的字符、以数字开头，或包含层级分隔符 `-`）。
 
 ## 🌟 Looking forward to your suggestions 欢迎“一键三连”，欢迎增加新特性
 

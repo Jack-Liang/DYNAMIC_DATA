@@ -20,8 +20,8 @@ CLASS lcl_demo DEFINITION FINAL CREATE PRIVATE.
       edge_cases,
       create_by_json
         IMPORTING
-          iv_json    TYPE string
-          iv_no_type TYPE c DEFAULT abap_true
+          iv_json  TYPE string
+          iv_infer TYPE abap_bool DEFAULT abap_false
         RETURNING
           VALUE(rr_type) TYPE REF TO cl_abap_datadescr,
       create_by_tab
@@ -100,7 +100,7 @@ CLASS lcl_demo IMPLEMENTATION.
 
     DATA(lv_json) = `{ "level": 95, "price": 88.5, "flag": true, "note": null }`.
 
-    print_type( ir_descr = create_by_json( iv_json = lv_json iv_no_type = abap_false )
+    print_type( ir_descr = create_by_json( iv_json = lv_json iv_infer = abap_true )
                 iv_title = 'level / price / flag / note' ).
 
   ENDMETHOD.
@@ -114,22 +114,21 @@ CLASS lcl_demo IMPLEMENTATION.
       `{ "hello": "hi", "author": { "name": "Jack", "favLang": "ABAP" },`
       && ` "skills": [ { "name": "ABAP", "level": 95 } ] }`.
 
-    CALL METHOD zcl_dynamic_object=>create_data
+    CALL METHOD zcl_dynamic_object=>create_data_by_json
       EXPORTING
         json_data            = lv_json
-        no_type              = abap_false
+        infer_types          = abap_true
       RECEIVING
         ref_data             = DATA(lr_data)
       EXCEPTIONS
-        unsupported_type     = 1
-        execution_failed     = 2
+        invalid_json         = 1
+        invalid_field_name   = 2
         duplicate_components = 3
-        invalid_json         = 4
-        invalid_field_name   = 5
-        OTHERS               = 6.
+        execution_failed     = 4
+        OTHERS               = 5.
 
     IF sy-subrc <> 0.
-      WRITE: / '  create_data raised exception, sy-subrc =', sy-subrc.
+      WRITE: / '  create_data_by_json raised exception, sy-subrc =', sy-subrc.
       RETURN.
     ENDIF.
 
@@ -163,23 +162,22 @@ CLASS lcl_demo IMPLEMENTATION.
     DATA(lt_map) = VALUE zcl_dynamic_object=>ty_name_map(
       ( json = 'aVeryLongJsonKeyNameThatExceedsThirtyCharactersXyz' abap = 'SHORT_NAME' ) ).
 
-    CALL METHOD zcl_dynamic_object=>create_main
+    CALL METHOD zcl_dynamic_object=>create_by_json
       EXPORTING
         json_data            = lv_json
-        no_type              = abap_false
+        infer_types          = abap_true
         name_map             = lt_map
       RECEIVING
         ref_type             = DATA(lr_type)
       EXCEPTIONS
-        unsupported_type     = 1
-        execution_failed     = 2
+        invalid_json         = 1
+        invalid_field_name   = 2
         duplicate_components = 3
-        invalid_json         = 4
-        invalid_field_name   = 5
-        OTHERS               = 6.
+        execution_failed     = 4
+        OTHERS               = 5.
 
     IF sy-subrc <> 0.
-      WRITE: / '  create_main raised exception, sy-subrc =', sy-subrc.
+      WRITE: / '  create_by_json raised exception, sy-subrc =', sy-subrc.
       RETURN.
     ENDIF.
 
@@ -195,7 +193,7 @@ CLASS lcl_demo IMPLEMENTATION.
 
     WRITE / 'Initial values (0, empty string) are kept:'.
     print_type( ir_descr = create_by_json( iv_json = `{"price": 0, "note": ""}`
-                                           iv_no_type = abap_false )
+                                           iv_infer = abap_true )
                 iv_title = 'price / note' ).
 
     WRITE / 'An empty root array becomes TABLE OF string:'.
@@ -204,7 +202,7 @@ CLASS lcl_demo IMPLEMENTATION.
 
     WRITE / 'A consistent scalar array types the table line:'.
     print_type( ir_descr = create_by_json( iv_json = `{"points": [10, 20]}`
-                                           iv_no_type = abap_false )
+                                           iv_infer = abap_true )
                 iv_title = 'points' ).
 
     WRITE / 'A key containing the hierarchy separator raises an exception:'.
@@ -218,22 +216,21 @@ CLASS lcl_demo IMPLEMENTATION.
 
   METHOD create_by_json.
 
-    CALL METHOD zcl_dynamic_object=>create_main
+    CALL METHOD zcl_dynamic_object=>create_by_json
       EXPORTING
-        json_data          = iv_json
-        no_type            = iv_no_type
+        json_data            = iv_json
+        infer_types          = iv_infer
       RECEIVING
-        ref_type           = rr_type
+        ref_type             = rr_type
       EXCEPTIONS
-        unsupported_type     = 1
-        execution_failed     = 2
+        invalid_json         = 1
+        invalid_field_name   = 2
         duplicate_components = 3
-        invalid_json         = 4
-        invalid_field_name   = 5
-        OTHERS               = 6.
+        execution_failed     = 4
+        OTHERS               = 5.
 
     IF sy-subrc <> 0.
-      WRITE: / '  create_main raised exception, sy-subrc =', sy-subrc.
+      WRITE: / '  create_by_json raised exception, sy-subrc =', sy-subrc.
     ENDIF.
 
   ENDMETHOD.
@@ -241,22 +238,20 @@ CLASS lcl_demo IMPLEMENTATION.
 
   METHOD create_by_tab.
 
-    CALL METHOD zcl_dynamic_object=>create_main
+    CALL METHOD zcl_dynamic_object=>create_by_field_tab
       EXPORTING
-        field_tab          = it_field_tab
-        type               = iv_type
+        field_tab            = it_field_tab
+        type                 = iv_type
       RECEIVING
-        ref_type           = rr_type
+        ref_type             = rr_type
       EXCEPTIONS
         unsupported_type     = 1
         execution_failed     = 2
         duplicate_components = 3
-        invalid_json         = 4
-        invalid_field_name   = 5
-        OTHERS               = 6.
+        OTHERS               = 4.
 
     IF sy-subrc <> 0.
-      WRITE: / '  create_main raised exception, sy-subrc =', sy-subrc.
+      WRITE: / '  create_by_field_tab raised exception, sy-subrc =', sy-subrc.
     ENDIF.
 
   ENDMETHOD.
