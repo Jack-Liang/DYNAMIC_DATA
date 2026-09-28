@@ -16,6 +16,10 @@ All notable changes to this project are documented in this file.
   that contradicts the source code, so it is reverted until tests can
   run locally in CI (abap-transpiler). The `ZDOE_STRUF` data element,
   the sXML based walker/filler and the diagnostic unit tests are kept.
+- Tests and the demo now measure character type lengths with
+  `DESCRIBE FIELD ... IN CHARACTER MODE`: the RTTS `->length` attribute
+  reports bytes for character types on some releases (a correct C(1)
+  shows as 2 in UCS-2 systems).
 
 ## 2.2.0 - 2026-09-28
 
