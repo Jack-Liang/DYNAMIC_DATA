@@ -2,6 +2,21 @@
 
 All notable changes to this project are documented in this file.
 
+## 2.2.1 - 2026-09-28
+
+### Fixed
+
+- **Length inference bug (the long standing "len 2" mystery)**: the sign
+  check `CP '+*'` treated `+` as a single character wildcard, so every
+  integer part lost its first digit (`88` became `8`) and packed lengths
+  came out too small. Replaced with an explicit first character compare.
+- Restored the proven 2.1.0 type building pipeline. The tree based
+  builder from 2.2.0 failed on-system with
+  `CX_SY_STRUCT_ATTRIBUTES` ("The component table is empty") in a way
+  that contradicts the source code, so it is reverted until tests can
+  run locally in CI (abap-transpiler). The `ZDOE_STRUF` data element,
+  the sXML based walker/filler and the diagnostic unit tests are kept.
+
 ## 2.2.0 - 2026-09-28
 
 ### Changed
