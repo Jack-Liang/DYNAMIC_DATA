@@ -139,6 +139,8 @@ CLASS ltcl_dynamic_type DEFINITION FINAL
     METHODS create_data_false_and_null FOR TESTING.
     METHODS create_data_array_root FOR TESTING.
     METHODS create_data_invalid_json FOR TESTING.
+    METHODS walker_emits_typed_rows FOR TESTING RAISING zcx_dynamic_json_error zcx_dynamic_name_error.
+    METHODS implicit_parent_becomes_struct FOR TESTING.
 
     METHODS build_by_json
       IMPORTING
@@ -573,6 +575,46 @@ CLASS ltcl_dynamic_type IMPLEMENTATION.
       exp = 4 " invalid_json
       act = create_data_subrc( `{` )
       msg = 'invalid_json expected' ).
+
+  ENDMETHOD.
+
+  METHOD walker_emits_typed_rows.
+
+    " Diagnostic: inspect the raw rows the walker produces, before any
+    " type building happens (used to pinpoint length mismatches)
+    lcl_json_walker=>walk(
+      EXPORTING
+        json        = `{"flag": true, "price": 88.5}`
+        infer_types = abap_true
+      IMPORTING
+        rows        = DATA(lt_rows) ).
+
+    READ TABLE lt_rows WITH KEY fldname = 'FLAG' ASSIGNING FIELD-SYMBOL(<flag>).
+    cl_abap_unit_assert=>assert_subrc( msg = 'FLAG row missing' ).
+    cl_abap_unit_assert=>assert_equals( exp = 'F' act = <flag>-fldtype msg = 'flag fldtype' ).
+    cl_abap_unit_assert=>assert_equals( exp = 'C' act = <flag>-intty msg = 'flag intty' ).
+    cl_abap_unit_assert=>assert_equals( exp = 1 act = CONV i( <flag>-lengt ) msg = 'flag lengt must be 1' ).
+
+    READ TABLE lt_rows WITH KEY fldname = 'PRICE' ASSIGNING FIELD-SYMBOL(<price>).
+    cl_abap_unit_assert=>assert_subrc( msg = 'PRICE row missing' ).
+    cl_abap_unit_assert=>assert_equals( exp = 'P' act = <price>-intty msg = 'price intty' ).
+    cl_abap_unit_assert=>assert_equals( exp = 3 act = CONV i( <price>-lengt ) msg = 'price lengt must be 3' ).
+    cl_abap_unit_assert=>assert_equals( exp = 1 act = CONV i( <price>-decim ) msg = 'price decim must be 1' ).
+
+  ENDMETHOD.
+
+  METHOD implicit_parent_becomes_struct.
+
+    " An undeclared intermediate field defaults to a structure
+    DATA(lt_rows) = VALUE zdot_datadescr(
+      ( fldname = 'A-B' fldtype = 'F' ) ).
+
+    DATA(lo_struct) = CAST cl_abap_structdescr( build_by_field_tab(
+      field_tab = lt_rows
+      type      = 'S' ) ).
+
+    DATA(lo_a) = CAST cl_abap_structdescr( component( struct = lo_struct name = 'A' ) ).
+    assert_string_kind( component( struct = lo_a name = 'B' ) ).
 
   ENDMETHOD.
 

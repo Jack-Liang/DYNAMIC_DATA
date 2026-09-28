@@ -2,6 +2,25 @@
 
 All notable changes to this project are documented in this file.
 
+## 2.2.0 - 2026-09-28
+
+### Changed
+
+- Tree based type building: the flat field description rows are parsed
+  into a node tree first and the types are generated bottom up. This
+  removes the call stack depth detection (`SYSTEM_CALLSTACK`), the flag
+  consumption logic, the parent reordering pass and the static
+  `GT_FIELD_TAB` buffer - the class is now stateless between calls.
+- `STRUF` now uses the self built data element `ZDOE_STRUF` (string)
+  instead of the CRM data element `CRM_OST_REF_FIELD`, removing the
+  activation risk on systems without CRM components. Values like
+  `SFLIGHT-CARRID` keep working, no length limit applies.
+- Undeclared intermediate path segments (e.g. only `A-B` configured,
+  no `A` row) now default to structures instead of leaking the child
+  into the parent level.
+- Invalid field names in `FIELD_TAB` now raise `EXECUTION_FAILED`
+  instead of dumping in the RTTS type creation.
+
 ## 2.1.0 - 2026-09-28
 
 ### Added
