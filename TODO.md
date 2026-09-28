@@ -33,7 +33,11 @@
   `.github/workflows/test.yml`、`.gitignore`。
   **首跑已绿（2026-09-28）**：main（7ef9b0c）与 feature/tree-refactor（5eb4d88）上的
   abaplint + unit-tests 四个运行全部 success，本项完成。
-  遗留跟进：向 open-abap-core 提 `get_p` 实现的 PR（合入后删除 3 个 skip）。
+  遗留跟进：~~向 open-abap-core 提 `get_p` 实现的 PR~~ **已提交
+  [open-abap-core#1275](https://github.com/open-abap/open-abap-core/pull/1275)（2026-09-28）**，
+  按上游 `get_c`/`get_n` 模式实现并附 `get_p_basic` 单测，上游 lint/单测全绿；
+  本地以打过补丁的 lib 验证：DYNAMIC_DATA 的 3 个 get_p skip 测试全部转绿（40 跑 / 3 skip / exit 0）。
+  **上游合入后**（lib 每次转译时从 GitHub main 克隆，自动生效）删除对应 3 个 skip 即可。
 
 ## 2. 树形类型构建重构（重启 2.2.0 失败的尝试）
 
