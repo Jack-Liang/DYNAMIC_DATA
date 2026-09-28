@@ -583,13 +583,17 @@ CLASS lcl_json_filler DEFINITION FINAL CREATE PRIVATE.
           !nodes     TYPE lcl_json_parser=>ty_nodes
           !node_path TYPE string
         CHANGING
-          !c_data    TYPE any,
+          !c_data    TYPE any
+        RAISING
+          zcx_dynamic_json_error,
       fill_table
         IMPORTING
           !nodes     TYPE lcl_json_parser=>ty_nodes
           !node_path TYPE string
         CHANGING
-          !c_data    TYPE STANDARD TABLE,
+          !c_data    TYPE STANDARD TABLE
+        RAISING
+          zcx_dynamic_json_error,
       set_value
         IMPORTING
           !node   TYPE lcl_json_parser=>ty_node
@@ -715,7 +719,7 @@ ENDCLASS.
 CLASS lcl_tree_node DEFINITION FINAL CREATE PUBLIC.
 
   PUBLIC SECTION.
-    TYPES ty_children TYPE STANDARD TABLE OF REF TO lcl_tree_node.
+    TYPES ty_children TYPE STANDARD TABLE OF REF TO lcl_tree_node WITH DEFAULT KEY.
 
     DATA ms_row TYPE zdos_datadescr.
     DATA mt_children TYPE ty_children.
@@ -734,7 +738,7 @@ CLASS lcl_type_builder DEFINITION FINAL CREATE PRIVATE.
       c_fieldtype_struct TYPE zdoe_fldtype VALUE 'S',
       c_fieldtype_table  TYPE zdoe_fldtype VALUE 'T'.
 
-    TYPES ty_nodes TYPE STANDARD TABLE OF REF TO lcl_tree_node.
+    TYPES ty_nodes TYPE STANDARD TABLE OF REF TO lcl_tree_node WITH DEFAULT KEY.
 
     CLASS-METHODS build
       IMPORTING
