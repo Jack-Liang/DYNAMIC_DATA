@@ -133,6 +133,7 @@ CLASS ltcl_dynamic_type DEFINITION FINAL
     METHODS long_key_raises FOR TESTING.
     METHODS duplicate_after_uppercase FOR TESTING.
     METHODS empty_input_raises_unsupported FOR TESTING.
+    METHODS metadata_constants FOR TESTING.
 
     METHODS build_by_json
       IMPORTING
@@ -440,6 +441,25 @@ CLASS ltcl_dynamic_type IMPLEMENTATION.
       exp = 1
       act = create_json_subrc( `` )
       msg = 'unsupported_type expected' ).
+
+  ENDMETHOD.
+
+  METHOD metadata_constants.
+
+    " Guards that the metadata constants are maintained (kept in sync
+    " with CHANGELOG.md when releasing)
+    cl_abap_unit_assert=>assert_not_initial(
+      act = zcl_dynamic_object=>c_info-version
+      msg = 'c_info-version must be maintained' ).
+    cl_abap_unit_assert=>assert_not_initial(
+      act = zcl_dynamic_object=>c_info-author
+      msg = 'c_info-author must be maintained' ).
+    cl_abap_unit_assert=>assert_not_initial(
+      act = zcl_dynamic_object=>c_info-repository
+      msg = 'c_info-repository must be maintained' ).
+    cl_abap_unit_assert=>assert_not_initial(
+      act = zcl_dynamic_object=>c_info-license
+      msg = 'c_info-license must be maintained' ).
 
   ENDMETHOD.
 
