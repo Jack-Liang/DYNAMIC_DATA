@@ -134,6 +134,11 @@ CLASS ltcl_dynamic_type DEFINITION FINAL
     METHODS duplicate_after_uppercase FOR TESTING.
     METHODS empty_input_raises_unsupported FOR TESTING.
     METHODS metadata_constants FOR TESTING.
+    METHODS create_data_fills_values FOR TESTING.
+    METHODS create_data_inferred_values FOR TESTING.
+    METHODS create_data_false_and_null FOR TESTING.
+    METHODS create_data_array_root FOR TESTING.
+    METHODS create_data_invalid_json FOR TESTING.
 
     METHODS build_by_json
       IMPORTING
@@ -141,6 +146,19 @@ CLASS ltcl_dynamic_type DEFINITION FINAL
         no_type TYPE c DEFAULT abap_true
       RETURNING
         VALUE(result) TYPE REF TO cl_abap_datadescr.
+
+    METHODS build_data_by_json
+      IMPORTING
+        json    TYPE string
+        no_type TYPE c DEFAULT abap_true
+      RETURNING
+        VALUE(result) TYPE REF TO data.
+
+    METHODS create_data_subrc
+      IMPORTING
+        json TYPE string
+      RETURNING
+        VALUE(result) TYPE i.
 
     METHODS build_by_field_tab
       IMPORTING
@@ -463,6 +481,101 @@ CLASS ltcl_dynamic_type IMPLEMENTATION.
 
   ENDMETHOD.
 
+  METHOD create_data_fills_values.
+
+    DATA(lr_data) = build_data_by_json(
+      `{ "hello": "hi", "skills": [ { "name": "ABAP", "level": 95 } ] }` ).
+
+    cl_abap_unit_assert=>assert_bound( lr_data ).
+
+    ASSIGN lr_data->* TO FIELD-SYMBOL(<wa>).
+
+    ASSIGN COMPONENT 'HELLO' OF STRUCTURE <wa> TO FIELD-SYMBOL(<hello>).
+    cl_abap_unit_assert=>assert_subrc( ).
+    cl_abap_unit_assert=>assert_equals( exp = 'hi' act = <hello> ).
+
+    ASSIGN COMPONENT 'SKILLS' OF STRUCTURE <wa> TO FIELD-SYMBOL(<skills>).
+    cl_abap_unit_assert=>assert_subrc( ).
+    cl_abap_unit_assert=>assert_equals( exp = 1 act = lines( <skills> ) ).
+
+    LOOP AT <skills> ASSIGNING FIELD-SYMBOL(<skill>).
+      EXIT.
+    ENDLOOP.
+
+    ASSIGN COMPONENT 'NAME' OF STRUCTURE <skill> TO FIELD-SYMBOL(<name>).
+    cl_abap_unit_assert=>assert_equals( exp = 'ABAP' act = <name> ).
+
+    " default NO_TYPE -> LEVEL is a string holding the literal text
+    ASSIGN COMPONENT 'LEVEL' OF STRUCTURE <skill> TO FIELD-SYMBOL(<level>).
+    cl_abap_unit_assert=>assert_equals( exp = '95' act = <level> ).
+
+  ENDMETHOD.
+
+  METHOD create_data_inferred_values.
+
+    DATA(lr_data) = build_data_by_json(
+      json    = `{"level": 95, "price": 88.5, "flag": true}`
+      no_type = abap_false ).
+
+    ASSIGN lr_data->* TO FIELD-SYMBOL(<wa>).
+
+    ASSIGN COMPONENT 'LEVEL' OF STRUCTURE <wa> TO FIELD-SYMBOL(<level>).
+    cl_abap_unit_assert=>assert_equals( exp = 95 act = <level> ).
+
+    ASSIGN COMPONENT 'PRICE' OF STRUCTURE <wa> TO FIELD-SYMBOL(<price>).
+    cl_abap_unit_assert=>assert_equals( exp = '88.5' act = <price> ).
+
+    ASSIGN COMPONENT 'FLAG' OF STRUCTURE <wa> TO FIELD-SYMBOL(<flag>).
+    cl_abap_unit_assert=>assert_equals( exp = 'X' act = <flag> ).
+
+  ENDMETHOD.
+
+  METHOD create_data_false_and_null.
+
+    DATA(lr_data) = build_data_by_json(
+      json    = `{"flag": false, "note": null}`
+      no_type = abap_false ).
+
+    ASSIGN lr_data->* TO FIELD-SYMBOL(<wa>).
+
+    ASSIGN COMPONENT 'FLAG' OF STRUCTURE <wa> TO FIELD-SYMBOL(<flag>).
+    cl_abap_unit_assert=>assert_initial( act = <flag> msg = 'false stays initial' ).
+
+    ASSIGN COMPONENT 'NOTE' OF STRUCTURE <wa> TO FIELD-SYMBOL(<note>).
+    cl_abap_unit_assert=>assert_initial( act = <note> msg = 'null stays initial' ).
+
+  ENDMETHOD.
+
+  METHOD create_data_array_root.
+
+    DATA(lr_data) = build_data_by_json(
+      json    = `[10, 20]`
+      no_type = abap_false ).
+
+    ASSIGN lr_data->* TO FIELD-SYMBOL(<table>).
+    cl_abap_unit_assert=>assert_equals( exp = 2 act = lines( <table> ) ).
+
+    DATA(lv_index) = 1.
+    LOOP AT <table> ASSIGNING FIELD-SYMBOL(<line>).
+      IF lv_index = 1.
+        cl_abap_unit_assert=>assert_equals( exp = 10 act = <line> ).
+      ELSE.
+        cl_abap_unit_assert=>assert_equals( exp = 20 act = <line> ).
+      ENDIF.
+      lv_index = lv_index + 1.
+    ENDLOOP.
+
+  ENDMETHOD.
+
+  METHOD create_data_invalid_json.
+
+    cl_abap_unit_assert=>assert_equals(
+      exp = 4 " invalid_json
+      act = create_data_subrc( `{` )
+      msg = 'invalid_json expected' ).
+
+  ENDMETHOD.
+
 
   METHOD build_by_json.
 
@@ -501,6 +614,47 @@ CLASS ltcl_dynamic_type IMPLEMENTATION.
         OTHERS               = 6.
 
     cl_abap_unit_assert=>assert_subrc( msg = 'create_main failed for field_tab' ).
+
+  ENDMETHOD.
+
+  METHOD build_data_by_json.
+
+    CALL METHOD zcl_dynamic_object=>create_data
+      EXPORTING
+        json_data          = json
+        no_type            = no_type
+      RECEIVING
+        ref_data           = result
+      EXCEPTIONS
+        unsupported_type     = 1
+        execution_failed     = 2
+        duplicate_components = 3
+        invalid_json         = 4
+        invalid_field_name   = 5
+        OTHERS               = 6.
+
+    cl_abap_unit_assert=>assert_subrc( msg = |create_data failed for: { json }| ).
+
+  ENDMETHOD.
+
+  METHOD create_data_subrc.
+
+    CALL METHOD zcl_dynamic_object=>create_data
+      EXPORTING
+        json_data          = json
+      RECEIVING
+        ref_data           = DATA(lr_unused)
+      EXCEPTIONS
+        unsupported_type     = 1
+        execution_failed     = 2
+        duplicate_components = 3
+        invalid_json         = 4
+        invalid_field_name   = 5
+        OTHERS               = 6.
+
+    " On a raised classic exception the returning value stays initial
+    cl_abap_unit_assert=>assert_initial( act = lr_unused ).
+    result = sy-subrc.
 
   ENDMETHOD.
 

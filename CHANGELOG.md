@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented in this file.
 
+## 2.1.0 - 2026-09-28
+
+### Added
+
+- `CREATE_DATA`: one step JSON -> generated type plus filled data object.
+  The JSON is parsed once with the kernel sXML library; both type
+  generation and value population use the same node table, so no JSON
+  binder (e.g. `/ui2/cl_json`) is needed on the caller side. Booleans
+  become `X`/initial, `null` stays initial.
+- Demo report section `Usage 4` showing the filled values.
+
 ## 2.0.0 - 2026-09-28
 
 ### Breaking / behavior changes

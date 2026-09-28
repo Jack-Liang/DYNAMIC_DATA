@@ -185,6 +185,18 @@ CLASS lcl_json_walker DEFINITION FINAL CREATE PRIVATE.
         zcx_dynamic_json_error
         zcx_dynamic_name_error.
 
+    CLASS-METHODS walk_nodes
+      IMPORTING
+        !nodes       TYPE lcl_json_parser=>ty_nodes
+        !infer_types TYPE abap_bool
+      EXPORTING
+        !root_type     TYPE zdoe_fldtype
+        !root_is_array TYPE abap_bool
+        !rows          TYPE zdot_datadescr
+      RAISING
+        zcx_dynamic_json_error
+        zcx_dynamic_name_error.
+
   PRIVATE SECTION.
 
     CLASS-METHODS walk_object
@@ -257,12 +269,19 @@ CLASS lcl_json_walker IMPLEMENTATION.
 
   METHOD walk.
 
-    DATA lt_nodes TYPE lcl_json_parser=>ty_nodes.
+    walk_nodes( EXPORTING nodes       = lcl_json_parser=>parse( json )
+                         infer_types = infer_types
+               IMPORTING root_type     = root_type
+                         root_is_array = root_is_array
+                         rows          = rows ).
 
-    lt_nodes = lcl_json_parser=>parse( json ).
+  ENDMETHOD.
+
+
+  METHOD walk_nodes.
 
     " Index 1 is the root node (empty path and name)
-    READ TABLE lt_nodes ASSIGNING FIELD-SYMBOL(<root>) INDEX 1.
+    READ TABLE nodes ASSIGNING FIELD-SYMBOL(<root>) INDEX 1.
     IF sy-subrc <> 0.
       RAISE EXCEPTION TYPE zcx_dynamic_json_error
         EXPORTING i_text = `No JSON data found`.
@@ -271,7 +290,7 @@ CLASS lcl_json_walker IMPLEMENTATION.
     CASE <root>-kind.
       WHEN lcl_json_parser=>c_kind-object.
         root_type = c_fieldtype_struct.
-        walk_object( EXPORTING nodes = lt_nodes
+        walk_object( EXPORTING nodes = nodes
                                prefix = ''
                                node_path = '/'
                                infer_types = infer_types
@@ -279,7 +298,7 @@ CLASS lcl_json_walker IMPLEMENTATION.
       WHEN lcl_json_parser=>c_kind-array.
         root_type = c_fieldtype_table.
         root_is_array = abap_true.
-        walk_array( EXPORTING nodes = lt_nodes
+        walk_array( EXPORTING nodes = nodes
                               prefix = ''
                               node_path = '/'
                               infer_types = infer_types
@@ -535,6 +554,147 @@ CLASS lcl_json_walker IMPLEMENTATION.
       descr = build_descr( int_digits = lv_int_digits
                            dec_digits = lv_dec_digits ).
     ENDIF.
+
+  ENDMETHOD.
+
+ENDCLASS.
+
+
+"* Fills a generated dynamic data object with values from the parsed
+"* JSON node table. The data object must have been generated from the
+"* same node table (ZCL_DYNAMIC_OBJECT=>CREATE_DATA), so every JSON
+"* member finds its component. Booleans become 'X'/initial, null and
+"* unsupported nested arrays stay initial.
+
+CLASS lcl_json_filler DEFINITION FINAL CREATE PRIVATE.
+
+  PUBLIC SECTION.
+    CLASS-METHODS fill
+      IMPORTING
+        !nodes TYPE lcl_json_parser=>ty_nodes
+        !data  TYPE REF TO data
+      RAISING
+        zcx_dynamic_json_error.
+
+  PRIVATE SECTION.
+    CLASS-METHODS:
+      fill_structure
+        IMPORTING
+          !nodes     TYPE lcl_json_parser=>ty_nodes
+          !node_path TYPE string
+        CHANGING
+          !c_data    TYPE any,
+      fill_table
+        IMPORTING
+          !nodes     TYPE lcl_json_parser=>ty_nodes
+          !node_path TYPE string
+        CHANGING
+          !c_data    TYPE STANDARD TABLE,
+      set_value
+        IMPORTING
+          !node   TYPE lcl_json_parser=>ty_node
+        CHANGING
+          !c_data TYPE any.
+
+ENDCLASS.
+
+CLASS lcl_json_filler IMPLEMENTATION.
+
+  METHOD fill.
+
+    READ TABLE nodes ASSIGNING FIELD-SYMBOL(<root>) INDEX 1.
+    IF sy-subrc <> 0.
+      RAISE EXCEPTION TYPE zcx_dynamic_json_error
+        EXPORTING i_text = `No JSON data found`.
+    ENDIF.
+
+    ASSIGN data->* TO FIELD-SYMBOL(<data>).
+
+    CASE <root>-kind.
+      WHEN lcl_json_parser=>c_kind-object.
+        fill_structure( EXPORTING nodes = nodes
+                                node_path = '/'
+                        CHANGING  c_data = <data> ).
+      WHEN lcl_json_parser=>c_kind-array.
+        fill_table( EXPORTING nodes = nodes
+                              node_path = '/'
+                    CHANGING  c_data = <data> ).
+      WHEN OTHERS.
+        RAISE EXCEPTION TYPE zcx_dynamic_json_error
+          EXPORTING i_text = `Root of the JSON must be an object or an array`.
+    ENDCASE.
+
+  ENDMETHOD.
+
+
+  METHOD fill_structure.
+
+    LOOP AT nodes ASSIGNING FIELD-SYMBOL(<child>) WHERE path = node_path.
+
+      ASSIGN COMPONENT to_upper( <child>-name ) OF STRUCTURE c_data
+        TO FIELD-SYMBOL(<comp>).
+      IF sy-subrc <> 0.
+        RAISE EXCEPTION TYPE zcx_dynamic_json_error
+          EXPORTING i_text = |Component for JSON key "{ <child>-name }" not found|.
+      ENDIF.
+
+      CASE <child>-kind.
+        WHEN lcl_json_parser=>c_kind-object.
+          fill_structure( EXPORTING nodes     = nodes
+                                  node_path = <child>-path && <child>-name && '/'
+                          CHANGING  c_data    = <comp> ).
+        WHEN lcl_json_parser=>c_kind-array.
+          fill_table( EXPORTING nodes     = nodes
+                               node_path = <child>-path && <child>-name && '/'
+                      CHANGING  c_data    = <comp> ).
+        WHEN OTHERS.
+          set_value( EXPORTING node = <child> CHANGING c_data = <comp> ).
+      ENDCASE.
+
+    ENDLOOP.
+
+  ENDMETHOD.
+
+
+  METHOD fill_table.
+
+    LOOP AT nodes ASSIGNING FIELD-SYMBOL(<item>) WHERE path = node_path.
+
+      APPEND INITIAL LINE TO c_data ASSIGNING FIELD-SYMBOL(<line>).
+
+      CASE <item>-kind.
+        WHEN lcl_json_parser=>c_kind-object.
+          fill_structure( EXPORTING nodes     = nodes
+                                  node_path = <item>-path && <item>-name && '/'
+                          CHANGING  c_data    = <line> ).
+        WHEN lcl_json_parser=>c_kind-number OR lcl_json_parser=>c_kind-string
+          OR lcl_json_parser=>c_kind-bool.
+          set_value( EXPORTING node = <item> CHANGING c_data = <line> ).
+        WHEN OTHERS.
+          " null / nested arrays stay initial
+      ENDCASE.
+
+    ENDLOOP.
+
+  ENDMETHOD.
+
+
+  METHOD set_value.
+
+    CASE node-kind.
+      WHEN lcl_json_parser=>c_kind-number OR lcl_json_parser=>c_kind-string.
+        " Numeric literals are kept as source text, the assignment
+        " converts them into the generated I/P/STRING component
+        c_data = node-value.
+      WHEN lcl_json_parser=>c_kind-bool.
+        IF node-value = 'true'.
+          c_data = abap_true.
+        ELSE.
+          CLEAR c_data.
+        ENDIF.
+      WHEN OTHERS.
+        " null stays initial
+    ENDCASE.
 
   ENDMETHOD.
 

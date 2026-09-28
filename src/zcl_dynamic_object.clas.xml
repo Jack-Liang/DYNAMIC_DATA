@@ -73,6 +73,16 @@
      <DESCRIPT>Build a type descriptor for an elementary type</DESCRIPT>
     </SEOCOMPOTX>
     <SEOCOMPOTX>
+     <CMPNAME>BUILD_TYPE</CMPNAME>
+     <LANGU>1</LANGU>
+     <DESCRIPT>从字段列表构建类型</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>BUILD_TYPE</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Build the type from the field list</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
      <CMPNAME>C_INFO</CMPNAME>
      <LANGU>1</LANGU>
      <DESCRIPT>版本、作者、仓库、许可等元信息常量</DESCRIPT>
@@ -96,6 +106,16 @@
      <CMPNAME>CREATE_MAIN</CMPNAME>
      <LANGU>1</LANGU>
      <DESCRIPT>主方法</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>CREATE_DATA</CMPNAME>
+     <LANGU>1</LANGU>
+     <DESCRIPT>一步生成数据对象并填充值</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>CREATE_DATA</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Create a filled data object in one step</DESCRIPT>
     </SEOCOMPOTX>
     <SEOCOMPOTX>
      <CMPNAME>CREATE_MAIN</CMPNAME>

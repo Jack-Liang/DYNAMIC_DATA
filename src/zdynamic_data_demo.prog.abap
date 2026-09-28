@@ -15,6 +15,7 @@ CLASS lcl_demo DEFINITION FINAL CREATE PRIVATE.
       usage_field_tab,
       usage_json_default,
       usage_json_inferred,
+      usage_create_data,
       edge_cases,
       create_by_json
         IMPORTING
@@ -54,6 +55,7 @@ CLASS lcl_demo IMPLEMENTATION.
     usage_field_tab( ).
     usage_json_default( ).
     usage_json_inferred( ).
+    usage_create_data( ).
     edge_cases( ).
 
   ENDMETHOD.
@@ -98,6 +100,52 @@ CLASS lcl_demo IMPLEMENTATION.
 
     print_type( ir_descr = create_by_json( iv_json = lv_json iv_no_type = abap_false )
                 iv_title = 'level / price / flag / note' ).
+
+  ENDMETHOD.
+
+
+  METHOD usage_create_data.
+
+    headline( 'Usage 4: CREATE_DATA - type plus values in one step (no /UI2 needed)' ).
+
+    DATA(lv_json) =
+      `{ "hello": "hi", "author": { "name": "Jack", "favLang": "ABAP" },`
+      && ` "skills": [ { "name": "ABAP", "level": 95 } ] }`.
+
+    CALL METHOD zcl_dynamic_object=>create_data
+      EXPORTING
+        json_data            = lv_json
+        no_type              = abap_false
+      RECEIVING
+        ref_data             = DATA(lr_data)
+      EXCEPTIONS
+        unsupported_type     = 1
+        execution_failed     = 2
+        duplicate_components = 3
+        invalid_json         = 4
+        invalid_field_name   = 5
+        OTHERS               = 6.
+
+    IF sy-subrc <> 0.
+      WRITE: / '  create_data raised exception, sy-subrc =', sy-subrc.
+      RETURN.
+    ENDIF.
+
+    ASSIGN lr_data->* TO FIELD-SYMBOL(<wa>).
+
+    ASSIGN COMPONENT 'HELLO' OF STRUCTURE <wa> TO FIELD-SYMBOL(<hello>).
+    ASSIGN COMPONENT 'AUTHOR' OF STRUCTURE <wa> TO FIELD-SYMBOL(<author>).
+    ASSIGN COMPONENT 'NAME' OF STRUCTURE <author> TO FIELD-SYMBOL(<author_name>).
+    ASSIGN COMPONENT 'SKILLS' OF STRUCTURE <wa> TO FIELD-SYMBOL(<skills>).
+
+    WRITE: / 'HELLO       =', <hello>.
+    WRITE: / 'AUTHOR-NAME =', <author_name>.
+    WRITE: / 'SKILLS:'.
+    LOOP AT <skills> ASSIGNING FIELD-SYMBOL(<skill>).
+      ASSIGN COMPONENT 'NAME' OF STRUCTURE <skill> TO FIELD-SYMBOL(<skill_name>).
+      ASSIGN COMPONENT 'LEVEL' OF STRUCTURE <skill> TO FIELD-SYMBOL(<skill_level>).
+      WRITE: / '  ', <skill_name>, <skill_level>.
+    ENDLOOP.
 
   ENDMETHOD.
 

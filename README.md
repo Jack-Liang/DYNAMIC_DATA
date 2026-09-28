@@ -73,6 +73,31 @@ JSON 解析基于内核的 `sXML` 库实现，类型生成本身**不依赖任�
   ENDTRY.
 ```
    
+Since v2.1.0 you can also get a **filled data object in one step** — the JSON is parsed once and no JSON binder is needed on the caller side (booleans become `X`/initial, `null` stays initial):
+
+```ABAP
+  DATA dyn_data TYPE REF TO data.
+  FIELD-SYMBOLS: <fs_wa> TYPE any.
+
+  dyn_data = zcl_dynamic_object=>create_data( json_data = json_data no_type = '' ).
+
+  ASSIGN dyn_data->* TO <fs_wa>.  "<fs_wa> already contains the values
+```
+
+自 v2.1.0 起也可以**一步拿到填好值的数据对象**——JSON 只解析一次，调用方不再需要任何 JSON 反序列化组件（布尔值填 `X`/初始，`null` 保持初始）：
+
+```ABAP
+  DATA dyn_data TYPE REF TO data.
+  FIELD-SYMBOLS: <fs_wa> TYPE any.
+
+  dyn_data = zcl_dynamic_object=>create_data( json_data = json_data no_type = '' ).
+
+  ASSIGN dyn_data->* TO <fs_wa>.  "<fs_wa> 已经填好了值
+```
+
+> Note: to handle the classic exceptions (`INVALID_JSON` etc.) use the `CALL METHOD ... EXCEPTIONS` form, same as with `CREATE_MAIN`.
+> 注：如需处理经典异常（`INVALID_JSON` 等），与 `CREATE_MAIN` 一样使用 `CALL METHOD ... EXCEPTIONS` 调用形式。
+
 ### Usage 3 Created by basic type  通过基本类型创建
 
 In Usage 1, if you pass a STRUF, such as SFLIGHT-CARRID or S_CARR_ID, to field_tab, the corresponding type is generated instead of the default String type.

@@ -10,7 +10,7 @@ CLASS zcl_dynamic_object DEFINITION
 
     CONSTANTS:
       BEGIN OF c_info,
-        version    TYPE string VALUE '2.0.0',
+        version    TYPE string VALUE '2.1.0',
         author     TYPE string VALUE 'Jack Liang',
         email      TYPE string VALUE 'jack.liang.world@gmail.com',
         repository TYPE string VALUE 'https://github.com/Jack-Liang/DYNAMIC_DATA',
@@ -25,6 +25,19 @@ CLASS zcl_dynamic_object DEFINITION
         VALUE(no_type)   TYPE c DEFAULT abap_true
       RETURNING
         VALUE(ref_type)  TYPE REF TO cl_abap_datadescr
+      EXCEPTIONS
+        unsupported_type
+        execution_failed
+        duplicate_components
+        invalid_json
+        invalid_field_name .
+
+    CLASS-METHODS create_data
+      IMPORTING
+        VALUE(json_data) TYPE string
+        VALUE(no_type)   TYPE c DEFAULT abap_true
+      RETURNING
+        VALUE(ref_data)  TYPE REF TO data
       EXCEPTIONS
         unsupported_type
         execution_failed
@@ -73,6 +86,16 @@ CLASS zcl_dynamic_object DEFINITION
         !decim TYPE decimals
       RETURNING
         VALUE(descr) TYPE REF TO cl_abap_datadescr .
+    CLASS-METHODS build_type
+      IMPORTING
+        !root_is_array TYPE abap_bool
+      CHANGING
+        !type          TYPE zdoe_fldtype
+      RETURNING
+        VALUE(ref_type) TYPE REF TO cl_abap_datadescr
+      EXCEPTIONS
+        duplicate_components
+        execution_failed .
     CLASS-METHODS structural_sub
       CHANGING
         !field_tab TYPE zdot_datadescr
@@ -322,35 +345,118 @@ CLASS zcl_dynamic_object IMPLEMENTATION.
     gt_field_tab[] = field_tab[].
   ENDIF.
 
-  "Put the parent field first (also translates all names to upper case)
-  "把上级字段放在前面（同时把所有字段名转为大写）
-  put_parent_field_first( ).
+  "CREATE TYPE
+  "创建类型
+  CALL METHOD build_type
+    EXPORTING
+      root_is_array        = lv_root_is_array
+    CHANGING
+      type                 = type
+    RECEIVING
+      ref_type             = ref_type
+    EXCEPTIONS
+      duplicate_components = 1
+      execution_failed     = 2
+      OTHERS               = 3.
 
-  "Duplicate field check, after upper case normalization
-  "重复字段检查（在大写归一化之后）
-  DATA(lt_check) = gt_field_tab.
-  SORT lt_check BY fldname.
-  DELETE ADJACENT DUPLICATES FROM lt_check COMPARING fldname.
-  IF lines( gt_field_tab ) NE lines( lt_check ).
+  IF sy-subrc = 1.
     RAISE duplicate_components.
-  ENDIF.
-  FREE lt_check.
-
-  "An empty root JSON array still produces TABLE OF string
-  "空数组作为根节点时仍然生成 TABLE OF string
-  IF gt_field_tab IS INITIAL AND lv_root_is_array = abap_false.
+  ELSEIF sy-subrc <> 0.
     RAISE execution_failed.
   ENDIF.
 
-  "CREATE TYPE
-  "创建类型
-  create_by_field_tab( EXPORTING type      = type
-                       IMPORTING ref_type  = ref_type
-                       CHANGING  field_tab = gt_field_tab ).
+ENDMETHOD.
 
 
+METHOD create_data.
+*&----------------------------------------------------------------------------
+*&    One step JSON -> generated type + filled data object.
+*&    The JSON is parsed once with the kernel sXML library, the type is
+*&    generated from the parsed node table and the values are filled
+*&    from the same node table. No JSON binder is needed on the caller
+*&    side (booleans become 'X'/initial, null stays initial).
+*&----------------------------------------------------------------------------
+
+  CLEAR: gt_field_tab.
+
+  IF json_data IS INITIAL.
+    RAISE unsupported_type.
+  ENDIF.
+
+  TRY.
+      DATA(lt_nodes) = lcl_json_parser=>parse( json_data ).
+
+      lcl_json_walker=>walk_nodes(
+        EXPORTING
+          nodes       = lt_nodes
+          infer_types = boolc( no_type <> abap_true )
+        IMPORTING
+          root_type     = DATA(lv_type)
+          root_is_array = DATA(lv_root_is_array)
+          rows          = gt_field_tab ).
+    CATCH zcx_dynamic_json_error.
+      RAISE invalid_json.
+    CATCH zcx_dynamic_name_error.
+      RAISE invalid_field_name.
+  ENDTRY.
+
+  CALL METHOD build_type
+    EXPORTING
+      root_is_array        = lv_root_is_array
+    CHANGING
+      type                 = lv_type
+    RECEIVING
+      ref_type             = DATA(lr_type)
+    EXCEPTIONS
+      duplicate_components = 1
+      execution_failed     = 2
+      OTHERS               = 3.
+
+  IF sy-subrc = 1.
+    RAISE duplicate_components.
+  ELSEIF sy-subrc <> 0 OR lr_type IS NOT BOUND.
+    RAISE execution_failed.
+  ENDIF.
+
+  CREATE DATA ref_data TYPE HANDLE lr_type.
+
+  TRY.
+      lcl_json_filler=>fill( nodes = lt_nodes data = ref_data ).
+    CATCH zcx_dynamic_json_error.
+      RAISE execution_failed.
+  ENDTRY.
 
 ENDMETHOD.
+
+
+  METHOD build_type.
+
+    "Put the parent field first (also translates all names to upper case)
+    "把上级字段放在前面（同时把所有字段名转为大写）
+    put_parent_field_first( ).
+
+    "Duplicate field check, after upper case normalization
+    "重复字段检查（在大写归一化之后）
+    DATA(lt_check) = gt_field_tab.
+    SORT lt_check BY fldname.
+    DELETE ADJACENT DUPLICATES FROM lt_check COMPARING fldname.
+    IF lines( gt_field_tab ) NE lines( lt_check ).
+      RAISE duplicate_components.
+    ENDIF.
+
+    "An empty root JSON array still produces TABLE OF string
+    "空数组作为根节点时仍然生成 TABLE OF string
+    IF gt_field_tab IS INITIAL AND root_is_array = abap_false.
+      RAISE execution_failed.
+    ENDIF.
+
+    "CREATE TYPE
+    "创建类型
+    create_by_field_tab( EXPORTING type      = type
+                         IMPORTING ref_type  = ref_type
+                         CHANGING  field_tab = gt_field_tab ).
+
+  ENDMETHOD.
 
 
   METHOD structural_sub.
