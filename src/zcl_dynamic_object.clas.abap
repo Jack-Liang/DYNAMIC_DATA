@@ -19,13 +19,15 @@ CLASS zcl_dynamic_object DEFINITION
       EXCEPTIONS
         unsupported_type
         execution_failed
-        duplicate_components .
+        duplicate_components
+        invalid_json
+        invalid_field_name .
   PROTECTED SECTION.
 
 
   PRIVATE SECTION.
 
-    CLASS-DATA global_field_tab TYPE zdot_datadescr .
+    CLASS-DATA gt_field_tab TYPE zdot_datadescr .
     CONSTANTS:
       BEGIN OF field_type,
         field  TYPE char1  VALUE 'F',
@@ -39,7 +41,6 @@ CLASS zcl_dynamic_object DEFINITION
         by_object_ref TYPE string VALUE 'DESCRIBE_BY_OBJECT_REF',
         by_data_ref   TYPE string VALUE 'DESCRIBE_BY_DATA_REF',
       END OF c_des_methd .
-    CLASS-DATA no_json_type TYPE c .
 
     CLASS-METHODS create_by_field_tab
       IMPORTING
@@ -60,27 +61,12 @@ CLASS zcl_dynamic_object DEFINITION
       CHANGING
         !field_tab TYPE zdot_datadescr
         !split_tab TYPE ty_split .
-    CLASS-METHODS deserialize_to_field_tab
-      IMPORTING
-        !json_data  TYPE string
-      CHANGING
-        VALUE(type) TYPE zdoe_fldtype .
-    CLASS-METHODS check_object
-      IMPORTING
-        !i_abap_type    TYPE REF TO cl_abap_structdescr
-        VALUE(i_data)   TYPE REF TO data
-        VALUE(i_parent) TYPE string .
-    CLASS-METHODS check_component
-      IMPORTING
-        VALUE(i_parent) TYPE string
-        !i_comp         TYPE abap_compdescr
-        VALUE(i_data)   TYPE REF TO data .
     CLASS-METHODS put_parent_field_first .
 ENDCLASS.
 
 
 
-CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
+CLASS zcl_dynamic_object IMPLEMENTATION.
 
 
   METHOD append_field.
@@ -93,11 +79,10 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
         ls_comp-type ?= cl_abap_typedescr=>describe_by_data( object ).
       WHEN c_des_methd-by_name.
         ls_comp-type ?= cl_abap_typedescr=>describe_by_name( object ).
-      WHEN c_des_methd-by_object_ref .
+      WHEN c_des_methd-by_object_ref.
         ls_comp-type ?= cl_abap_typedescr=>describe_by_object_ref( object ).
       WHEN c_des_methd-by_data_ref.
         ls_comp-type ?= cl_abap_typedescr=>describe_by_data_ref( object ).
-      WHEN OTHERS.
     ENDCASE.
 
     APPEND ls_comp TO comp_tab.
@@ -108,19 +93,14 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
 
   METHOD create_by_field_tab.
 
-    DATA lv_str TYPE string.
-
     DATA lt_datadescr TYPE zdot_datadescr.
-    DATA ls_datadescr TYPE zdos_datadescr.
     DATA lt_split TYPE TABLE OF string.
-    DATA tmp_split LIKE lt_split.
 
-    DATA lt_comp    TYPE abap_component_tab.
-    DATA lr_struc     TYPE REF TO cl_abap_structdescr.
-    DATA lr_table     TYPE REF TO cl_abap_tabledescr.
+    DATA lt_comp     TYPE abap_component_tab.
+    DATA lr_struc    TYPE REF TO cl_abap_structdescr.
+    DATA lr_table    TYPE REF TO cl_abap_tabledescr.
 
-    DATA l_dyn_s  TYPE REF TO cl_abap_datadescr.
-    DATA l_dyn_obj  TYPE REF TO data.
+    DATA l_dyn_obj TYPE REF TO data.
 
     LOOP AT field_tab ASSIGNING FIELD-SYMBOL(<fs_datadescr>)
       WHERE flag = abap_false.
@@ -131,8 +111,7 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
 
       SPLIT <fs_datadescr>-fldname AT '-' INTO TABLE lt_split.
 
-
-      DESCRIBE TABLE lt_split LINES DATA(lines).
+      DATA(lines) = lines( lt_split ).
       READ TABLE lt_split ASSIGNING FIELD-SYMBOL(<fs_split>) INDEX lines.
 
       CASE <fs_datadescr>-fldtype.
@@ -148,12 +127,12 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
             CASE <fs_datadescr>-intty.
               WHEN 'P'.
                 CREATE DATA l_dyn_obj TYPE p LENGTH <fs_datadescr>-lengt DECIMALS <fs_datadescr>-decim.
-              WHEN 'C' OR 'N' OR 'X' .
-                CREATE DATA l_dyn_obj TYPE (<fs_datadescr>-intty) LENGTH <fs_datadescr>-lengt .
+              WHEN 'C' OR 'N' OR 'X'.
+                CREATE DATA l_dyn_obj TYPE (<fs_datadescr>-intty) LENGTH <fs_datadescr>-lengt.
               WHEN 'g'.
                 CREATE DATA l_dyn_obj TYPE string.
               WHEN OTHERS.
-                CREATE DATA l_dyn_obj TYPE (<fs_datadescr>-intty)  .
+                CREATE DATA l_dyn_obj TYPE (<fs_datadescr>-intty).
             ENDCASE.
 
             append_field( EXPORTING fldname  = <fs_split>
@@ -181,7 +160,7 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
           IF <fs_datadescr>-struf IS NOT INITIAL.
 
             IF <fs_datadescr>-fldtype = field_type-table.
-              CREATE DATA l_dyn_obj TYPE TABLE OF (<fs_datadescr>-struf) .
+              CREATE DATA l_dyn_obj TYPE TABLE OF (<fs_datadescr>-struf).
               append_field( EXPORTING fldname  = <fs_split>
                                       method   = c_des_methd-by_data_ref
                                       object   = l_dyn_obj
@@ -192,6 +171,26 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
                                       object   = <fs_datadescr>-struf
                             CHANGING  comp_tab = lt_comp[] ).
             ENDIF.
+
+          ELSEIF <fs_datadescr>-intty IS NOT INITIAL.
+            " 表类型但字段为基本类型（如 json 数组的元素类型推断）
+            " Table whose line is an elementary type (e.g. inferred from a json array)
+            CASE <fs_datadescr>-intty.
+              WHEN 'P'.
+                CREATE DATA l_dyn_obj TYPE TABLE OF p
+                  LENGTH <fs_datadescr>-lengt DECIMALS <fs_datadescr>-decim.
+              WHEN 'C' OR 'N' OR 'X'.
+                CREATE DATA l_dyn_obj TYPE TABLE OF (<fs_datadescr>-intty) LENGTH <fs_datadescr>-lengt.
+              WHEN 'g'.
+                CREATE DATA l_dyn_obj TYPE TABLE OF string.
+              WHEN OTHERS.
+                CREATE DATA l_dyn_obj TYPE TABLE OF (<fs_datadescr>-intty).
+            ENDCASE.
+
+            append_field( EXPORTING fldname  = <fs_split>
+                                    method   = c_des_methd-by_data_ref
+                                    object   = l_dyn_obj
+                          CHANGING  comp_tab = lt_comp[] ).
 
           ELSE.
 
@@ -206,8 +205,6 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
                                     object   = l_dyn_obj "创建好的类型 Created type
                           CHANGING  comp_tab = lt_comp[] ).
           ENDIF.
-
-        WHEN OTHERS.
 
       ENDCASE.
 
@@ -230,15 +227,18 @@ CLASS ZCL_DYNAMIC_OBJECT IMPLEMENTATION.
     ENDIF.
 
     "  like "XXXX": [ ]    OR   "XXX": ["XXX" ]
+    " An empty table falls back to TABLE OF string
     IF ref_data IS INITIAL AND type = field_type-table.
-      CREATE DATA ref_data TYPE TABLE OF string.
+      lr_table = cl_abap_tabledescr=>create( cl_abap_elemdescr=>get_string( ) ).
+      CREATE DATA ref_data TYPE HANDLE lr_table.
+      ref_type ?= lr_table.
     ENDIF.
 
 
   ENDMETHOD.
 
 
-METHOD create_main.
+  METHOD create_main.
 *&----------------------------------------------------------------------------
 *&
 *&    Desecription:
@@ -258,7 +258,7 @@ METHOD create_main.
 *&
 *&----------------------------------------------------------------------------
 
-  CLEAR: global_field_tab.
+  CLEAR: gt_field_tab.
 
   "Entry check
   "入参检查
@@ -268,36 +268,48 @@ METHOD create_main.
   ENDIF.
 
   IF json_data IS NOT INITIAL.
-    no_json_type = no_type.
-    deserialize_to_field_tab( EXPORTING json_data = json_data CHANGING type = type ).
+    " JSON -> field description table, parsed with the kernel sXML library
+    " (see the local classes in the LOCALS_IMP include)
+    TRY.
+        lcl_json_walker=>walk( EXPORTING json        = json_data
+                                         infer_types = boolc( no_type <> abap_true )
+                               IMPORTING root_type      = type
+                                         root_is_array   = DATA(lv_root_is_array)
+                                         rows            = gt_field_tab ).
+      CATCH zcx_dynamic_json_error.
+        RAISE invalid_json.
+      CATCH zcx_dynamic_name_error.
+        RAISE invalid_field_name.
+    ENDTRY.
   ELSE.
-    global_field_tab[] = field_tab[].
+    gt_field_tab[] = field_tab[].
   ENDIF.
 
-  IF global_field_tab[] IS INITIAL.
-    RAISE execution_failed.
-  ENDIF.
+  "Put the parent field first (also translates all names to upper case)
+  "把上级字段放在前面（同时把所有字段名转为大写）
+  put_parent_field_first( ).
 
-  "Duplicate field check
-  "重复字段检查
-  DATA(lt_field_tab) = global_field_tab.
-
-  SORT lt_field_tab BY fldname.
-  DELETE ADJACENT DUPLICATES FROM lt_field_tab COMPARING fldname.
-  IF lines( global_field_tab ) NE lines( lt_field_tab ).
+  "Duplicate field check, after upper case normalization
+  "重复字段检查（在大写归一化之后）
+  DATA(lt_check) = gt_field_tab.
+  SORT lt_check BY fldname.
+  DELETE ADJACENT DUPLICATES FROM lt_check COMPARING fldname.
+  IF lines( gt_field_tab ) NE lines( lt_check ).
     RAISE duplicate_components.
   ENDIF.
-  FREE lt_field_tab.
+  FREE lt_check.
 
-  "Put the parent field first
-  "把上级字段放在前面
-  put_parent_field_first( ).
+  "An empty root JSON array still produces TABLE OF string
+  "空数组作为根节点时仍然生成 TABLE OF string
+  IF gt_field_tab IS INITIAL AND lv_root_is_array = abap_false.
+    RAISE execution_failed.
+  ENDIF.
 
   "CREATE TYPE
   "创建类型
   create_by_field_tab( EXPORTING type      = type
                        IMPORTING ref_type  = ref_type
-                       CHANGING  field_tab = global_field_tab ).
+                       CHANGING  field_tab = gt_field_tab ).
 
 
 
@@ -310,36 +322,36 @@ ENDMETHOD.
     DATA ls_datadescr TYPE zdos_datadescr.
 
     "计算层级 ( 删除由于提层导致的差异 )
-    DATA mt_callstack TYPE abap_callstack .
-    FIELD-SYMBOLS: <ls_callstack> TYPE abap_callstack_line.
+    "Calculate the depth (remove the difference caused by the level)
+    DATA lt_callstack TYPE abap_callstack.
 
     CALL FUNCTION 'SYSTEM_CALLSTACK'
       IMPORTING
-        callstack = mt_callstack.
+        callstack = lt_callstack.
 
-    DELETE mt_callstack WHERE blockname NE 'CREATE_BY_FIELD_TAB'.
-    DESCRIBE TABLE mt_callstack LINES DATA(i).
-    i = i - 1.
+    DELETE lt_callstack WHERE blockname <> 'CREATE_BY_FIELD_TAB'.
+    DATA(lv_depth) = lines( lt_callstack ) - 1.
 
-    LOOP AT global_field_tab ASSIGNING FIELD-SYMBOL(<fs_datadescr>)
+    LOOP AT gt_field_tab ASSIGNING FIELD-SYMBOL(<fs_datadescr>)
       WHERE flag = abap_false.
 
       SPLIT <fs_datadescr>-fldname AT '-' INTO TABLE lt_split.
 
-      IF i GT 0.
-        DELETE lt_split FROM 1 TO i.
+      IF lv_depth > 0.
+        DELETE lt_split FROM 1 TO lv_depth.
       ENDIF.
 
       "判断是否上下级关系
+      "Check the parent-child relationship
       IF lines( split_tab ) + 1 = lines( lt_split ).
 
-        READ TABLE lt_split INDEX lines( lt_split ) ASSIGNING FIELD-SYMBOL(<fs_split>) .
-        DATA(lv_filed) = <fs_split>.
+        READ TABLE lt_split INDEX lines( lt_split ) ASSIGNING FIELD-SYMBOL(<fs_split>).
+        DATA(lv_field) = <fs_split>.
         DELETE lt_split INDEX lines( lt_split ).
         IF split_tab = lt_split."上级相同，确定为下级字段
 
           MOVE-CORRESPONDING <fs_datadescr> TO ls_datadescr.
-          ls_datadescr-fldname = lv_filed.
+          ls_datadescr-fldname = lv_field.
           APPEND ls_datadescr TO field_tab.
 
           <fs_datadescr>-flag = abap_true.
@@ -348,166 +360,42 @@ ENDMETHOD.
       ENDIF.
     ENDLOOP.
 
-
-
-  ENDMETHOD.
-
-
-  METHOD check_component.
-
-    DATA  lv_parent TYPE string.
-    FIELD-SYMBOLS: <tab>  TYPE STANDARD TABLE,
-                   <test> TYPE any.
-    DATA: abap_type TYPE REF TO cl_abap_structdescr.
-
-    IF i_parent IS INITIAL.
-      lv_parent = i_comp-name.
-    ELSE.
-      CONCATENATE i_parent '-' i_comp-name INTO lv_parent.
-    ENDIF.
-
-    TRY.
-        DATA(str_type) = CAST cl_abap_structdescr(  cl_abap_structdescr=>describe_by_data_ref( p_data_ref  = i_data ) ).
-
-        APPEND VALUE #( fldname = lv_parent fldtype = field_type-struct ) TO global_field_tab.
-
-        abap_type = CAST cl_abap_structdescr( cl_abap_structdescr=>describe_by_data_ref( p_data_ref = i_data ) ).
-
-        check_object( i_abap_type = abap_type i_data = i_data i_parent = lv_parent ).
-
-      CATCH cx_root.
-        TRY.
-            DATA(table_type) = CAST cl_abap_tabledescr( cl_abap_tabledescr=>describe_by_data_ref( p_data_ref = i_data ) ).
-            FIELD-SYMBOLS: <table> TYPE ANY TABLE.
-
-            ASSIGN i_data->* TO <table>.
-            LOOP AT <table> ASSIGNING FIELD-SYMBOL(<line>).
-              EXIT.
-            ENDLOOP.
-
-            APPEND VALUE #( fldname = lv_parent fldtype = field_type-table ) TO global_field_tab.
-
-            IF <line> IS ASSIGNED.
-              IF <line> IS NOT INITIAL.
-                abap_type = CAST cl_abap_structdescr( cl_abap_structdescr=>describe_by_data_ref( p_data_ref = <line> ) ).
-              ELSE.
-                abap_type = CAST cl_abap_structdescr( cl_abap_structdescr=>describe_by_name( p_name = 'STRING' ) ).
-              ENDIF.
-              check_object( i_abap_type = abap_type i_data = <line> i_parent = lv_parent ).
-            ENDIF.
-
-          CATCH cx_root.
-
-            IF <line> IS ASSIGNED.  "https://github.com/Jack-Liang/DYNAMIC_DATA/issues/1
-              RETURN.
-            ENDIF.
-
-            "检查 i_data 的基本类型 Check the basic type of i_data
-            IF no_json_type = abap_true.
-              APPEND VALUE #( fldname = lv_parent fldtype = field_type-field ) TO global_field_tab.
-            ELSE.
-              DATA(typedescr) = cl_abap_typedescr=>describe_by_data_ref( i_data ).
-
-              APPEND VALUE #( fldname = lv_parent
-                                              fldtype = field_type-field
-                                              intty = typedescr->type_kind
-                                              lengt = typedescr->length
-*                                           DECIM
-              ) TO global_field_tab.
-            ENDIF.
-
-        ENDTRY.
-    ENDTRY.
-
-  ENDMETHOD.
-
-
-  METHOD check_object.
-
-    LOOP AT i_abap_type->components ASSIGNING FIELD-SYMBOL(<comp>).
-      DATA(field) = |i_data->{ <comp>-name }|.
-      ASSIGN (field) TO FIELD-SYMBOL(<data>).
-      IF <data> IS ASSIGNED AND <data> IS NOT INITIAL.
-
-        check_component(
-          i_parent = i_parent
-          i_comp   = <comp>
-          i_data   = <data> ).
-
-      ENDIF.
-      UNASSIGN <data>.
-    ENDLOOP.
-
-  ENDMETHOD.
-
-
-  METHOD deserialize_to_field_tab.
-    DATA: i_data    TYPE REF TO data,
-          abap_type TYPE REF TO cl_abap_structdescr.
-    FIELD-SYMBOLS: <table> TYPE ANY TABLE.
-
-    i_data = /ui2/cl_json=>generate( json = json_data ).
-
-    TRY.
-        DATA(abap_type_table) = CAST cl_abap_tabledescr( cl_abap_tabledescr=>describe_by_data_ref( p_data_ref = i_data ) ).
-        ASSIGN i_data->* TO <table>.
-        LOOP AT <table> ASSIGNING FIELD-SYMBOL(<line>).
-          EXIT.
-        ENDLOOP.
-        type = field_type-table.
-
-        abap_type = CAST cl_abap_structdescr( cl_abap_structdescr=>describe_by_data_ref( p_data_ref = <line> ) ).
-
-        check_object( i_abap_type = abap_type i_data = <line> i_parent = '' ).
-
-
-      CATCH cx_sy_move_cast_error.
-        type = field_type-struct.
-
-        abap_type = CAST cl_abap_structdescr( cl_abap_structdescr=>describe_by_data_ref( p_data_ref = i_data ) ).
-
-        check_object( i_abap_type = abap_type i_data = i_data i_parent = '' ).
-
-    ENDTRY.
-
-
-
-
   ENDMETHOD.
 
 
   METHOD put_parent_field_first.
-    CHECK global_field_tab IS NOT INITIAL.
 
-    DATA lt_field LIKE  global_field_tab.
-    DATA ls_field LIKE LINE OF global_field_tab.
-    DATA itab TYPE TABLE OF string.
+    IF gt_field_tab IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    DATA lt_field LIKE gt_field_tab.
+    DATA ls_field LIKE LINE OF gt_field_tab.
+    DATA lt_parts TYPE TABLE OF string.
     DATA lv_field TYPE string.
-    DATA n TYPE i.
 
-    CONSTANTS sep TYPE c VALUE '-'.
+    CONSTANTS lc_sep TYPE c VALUE '-'.
 
-    LOOP AT global_field_tab ASSIGNING FIELD-SYMBOL(<fs_field>).
+    LOOP AT gt_field_tab ASSIGNING FIELD-SYMBOL(<fs_field>).
       TRANSLATE <fs_field>-fldname TO UPPER CASE.
     ENDLOOP.
 
-    LOOP AT global_field_tab INTO ls_field.
+    LOOP AT gt_field_tab INTO ls_field.
 
-      IF ls_field-fldname CS sep.
-        CLEAR: n, lv_field,itab.
+      IF ls_field-fldname CS lc_sep.
+        CLEAR: lv_field, lt_parts.
 
-        SPLIT ls_field-fldname AT sep INTO TABLE itab.
-        DESCRIBE TABLE itab LINES n.
-        DELETE itab INDEX n.
+        SPLIT ls_field-fldname AT lc_sep INTO TABLE lt_parts.
+        DELETE lt_parts INDEX lines( lt_parts ).
 
-        CONCATENATE LINES OF itab INTO lv_field SEPARATED BY  sep .
+        CONCATENATE LINES OF lt_parts INTO lv_field SEPARATED BY lc_sep.
 
         READ TABLE lt_field WITH KEY fldname = lv_field TRANSPORTING NO FIELDS.
         IF sy-subrc <> 0.
-          READ TABLE global_field_tab INTO DATA(wa) WITH KEY fldname = lv_field.
+          READ TABLE gt_field_tab INTO DATA(ls_row) WITH KEY fldname = lv_field.
           IF sy-subrc = 0.
-            APPEND wa TO lt_field.
-            DELETE TABLE global_field_tab FROM wa.
+            APPEND ls_row TO lt_field.
+            DELETE TABLE gt_field_tab FROM ls_row.
           ENDIF.
         ENDIF.
       ENDIF.
@@ -516,7 +404,7 @@ ENDMETHOD.
 
     ENDLOOP.
 
-    global_field_tab = lt_field.
+    gt_field_tab = lt_field.
 
   ENDMETHOD.
 ENDCLASS.

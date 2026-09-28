@@ -1,0 +1,15 @@
+name: abaplint
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  abaplint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run abaplint
+        uses: abaplint/actions-abaplint@main
+        with:
+          configFile: abaplint.jsonc

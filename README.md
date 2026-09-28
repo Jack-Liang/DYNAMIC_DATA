@@ -1,4 +1,4 @@
-# DYNAMIC_DATA [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Jack-Liang/DYNAMIC_DATA)
+# DYNAMIC_DATA [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Jack-Liang/DYNAMIC_DATA) [![abaplint](https://github.com/Jack-Liang/DYNAMIC_DATA/actions/workflows/abaplint.yml/badge.svg)](https://github.com/Jack-Liang/DYNAMIC_DATA/actions/workflows/abaplint.yml)
 Create ABAP nested data types dynamically within your program
 
 在程序内动态创建 ABAP 嵌套数据类型
@@ -8,6 +8,10 @@ Create ABAP nested data types dynamically within your program
 Use [abapgit](https://github.com/abapGit/docs.abapgit.org) to pull up the project code.
 
 请使用 [abapgit](https://github.com/abapGit/docs.abapgit.org) 拉取项目代码。
+
+A runnable demo / smoke test report `ZDYNAMIC_DATA_DEMO` covering the examples below and the edge cases is included in the package. It is not required by the library and can be deleted after pulling.
+
+包内附带一个可运行的演示/冒烟测试程序 `ZDYNAMIC_DATA_DEMO`，覆盖下文示例及边界场景；该程序不是类库运行所必需的，拉取后可以删除。
 
 ### Usage 1 Generate through configuration fields  通过配置字段生成
 
@@ -37,6 +41,10 @@ Use [abapgit](https://github.com/abapGit/docs.abapgit.org) to pull up the projec
 ```
 
 ### Usage 2 Generate via json  通过 json 生成
+
+The JSON is parsed with the kernel `sXML` library, so type generation itself has **no dependencies on other repositories** (in the example below `/ui2/cl_json` is only used afterwards to fill the generated type with data).
+
+JSON 解析基于内核的 `sXML` 库实现，类型生成本身**不依赖任何其他仓库**（下例中的 `/ui2/cl_json` 只是随后往生成的类型里填充数据时由调用方自己使用的）。
 
 
 ```ABAP
@@ -77,11 +85,22 @@ You can also specify the underlying ABAP type, such as `( INTTY = 'C' LENGT= 50 
 
 This is a new project. The author cannot guarantee that it will always run correctly. Therefore, please test it thoroughly before using it in a production environment.
 
-If you pass `NO_TYPE = ''` to CREATE_MAIN when generating via json, the program will infer the possible data types based on json. **The results obtained in this way are not always accurate**.
+If you pass `NO_TYPE = ''` to CREATE_MAIN when generating via json, the program will infer the possible data types based on json:
+
+| JSON | Inferred ABAP type |
+| --- | --- |
+| `95` | `i` (small integers, up to 9 digits become `p` otherwise) |
+| `88.5` | `p` with length/decimals fitted to the literal |
+| `true` / `false` | `c` length 1 |
+| `"text"` / `null` / `1e5` | `string` |
+| `[]` , `["a", "b"]` | table of `string` |
+| `[10, 20]` | table of `i` (consistent scalar items) |
+
+Errors are reported through the classic exceptions `INVALID_JSON` (unparsable JSON) and `INVALID_FIELD_NAME` (a key longer than 30 characters, containing characters other than `A-Z 0-9 _`, starting with a digit, or containing `-`, which is reserved as the hierarchy separator).
 
 这是一个新项目。作者不能保证它总是正确运行。因此，在将其用于生产环境之前，请对其进行彻底的测试。
 
-如果在通过 json 生成时，如果给 CREATE_MAIN 传入 `NO_TYPE = ''`, 程序将根据 json 推测可能的数据类型，需要说明的，**这种方式得到的结果并不一定是准确的**。
+如果在通过 json 生成时，给 CREATE_MAIN 传入 `NO_TYPE = ''`，程序将根据 json 推断可能的数据类型，规则见上表；推断不出类型的值一律按 `string` 处理。解析失败会抛出经典异常 `INVALID_JSON`（无效 JSON）和 `INVALID_FIELD_NAME`（字段名超过 30 位、含 `A-Z 0-9 _` 之外的字符、以数字开头，或包含层级分隔符 `-`）。
 
 ## 🌟 Looking forward to your suggestions 欢迎“一键三连”，欢迎增加新特性
 
@@ -94,6 +113,8 @@ Related Articles 相关文章：
 
 ## Thanks 鸣谢
 
-This project also refers to some code from the following project, and we hereby express our gratitude
+This project also refers to some code from the following projects, and we hereby express our gratitude
 
 [JSON2ABAPType](https://github.com/fidley/JSON2ABAPType)
+
+[ajson](https://github.com/sbcgua/ajson) (the sXML based JSON parsing approach, MIT)

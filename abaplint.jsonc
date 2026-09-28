@@ -1,0 +1,115 @@
+{
+  "global": {
+    "files": "/src/**/*.*"
+  },
+  "dependencies": [{
+    "url": "https://github.com/abaplint/deps",
+    "folder": "/abaplint-deps",
+    "files": "/src/**/*.*"
+  }],
+  "syntax": {
+    "version": "v740sp02",
+    "errorNamespace": "^(Z|Y|LCL_|LCX_|TY_|LIF_)",
+    "globalConstants": [],
+    "globalMacros": []
+  },
+  "rules": {
+    "7bit_ascii": {
+      "exclude": ["zcl_dynamic_object\\.clas\\.abap$"]
+    },
+    "avoid_use": {
+      "define": false,
+      "testSeams": true,
+      "statics": true,
+      "break": true,
+      "defaultKey": false,
+      "describeLines": true
+    },
+    "begin_end_names": true,
+    "check_syntax": true,
+    "contains_tab": true,
+    "description_empty": true,
+    "empty_line_in_statement": {
+      "allowChained": false
+    },
+    "empty_statement": true,
+    "exit_or_check": true,
+    "exporting": true,
+    "functional_writing": false,
+    "global_class": true,
+    "indentation": false,
+    "keyword_case": {
+      "style": "upper",
+      "ignoreExceptions": true,
+      "ignoreGlobalClassBoundaries": true
+    },
+    "line_length": {
+      "length": 120
+    },
+    "local_class_naming": {
+      "local": "^LCL_.+$",
+      "exception": "^LCX_.+$",
+      "test": "^LTCL_.+$"
+    },
+    "local_variable_names": {
+      "expectedData": "^L.+$",
+      "expectedConstant": "^LC_.+$",
+      "expectedFS": "^(?!<L.?_).+"
+    },
+    "local_testclass_consistency": true,
+    "main_file_contents": true,
+    "max_one_statement": true,
+    "method_length": {
+      "statements": 100,
+      "errorWhenEmpty": false,
+      "checkForms": true,
+      "ignoreTestClasses": true
+    },
+    "newline_between_methods": {
+      "count": 3,
+      "logic": "less"
+    },
+    "obsolete_statement": {
+      "refresh": true,
+      "compute": true,
+      "parameter": true,
+      "callTransformation": true,
+      "communication": true,
+      "exitFromSQL": true,
+      "freeMemory": true,
+      "occurences": true,
+      "pack": true,
+      "ranges": true,
+      "regex": true,
+      "selectWithoutInto": true,
+      "sortByFS": true,
+      "add": true,
+      "subtract": true,
+      "multiply": true,
+      "move": true,
+      "divide": true,
+      "requested": true,
+      "occurs": true,
+      "setExtended": true,
+      "withHeaderLine": true,
+      "fieldSymbolStructure": true,
+      "load": true,
+      "typePools": true
+    },
+    "parser_error": true,
+    "sequential_blank": {
+      "lines": 4
+    },
+    "space_before_colon": true,
+    "space_before_dot": {
+      "ignoreGlobalDefinition": true,
+      "ignoreExceptions": true
+    },
+    "start_at_tab": true,
+    "unreachable_code": true,
+    "unused_variables": true,
+    "when_others_last": true,
+    "whitespace_end": true,
+    "xml_consistency": true
+  }
+}
