@@ -63,16 +63,6 @@
      <DESCRIPT>Build the type from the field list</DESCRIPT>
     </SEOCOMPOTX>
     <SEOCOMPOTX>
-     <CMPNAME>C_INFO</CMPNAME>
-     <LANGU>1</LANGU>
-     <DESCRIPT>版本、作者、仓库、许可等元信息常量</DESCRIPT>
-    </SEOCOMPOTX>
-    <SEOCOMPOTX>
-     <CMPNAME>C_INFO</CMPNAME>
-     <LANGU>E</LANGU>
-     <DESCRIPT>Metadata constants: version, author, repository, license</DESCRIPT>
-    </SEOCOMPOTX>
-    <SEOCOMPOTX>
      <CMPNAME>CREATE_BY_FIELD_TAB</CMPNAME>
      <LANGU>1</LANGU>
      <DESCRIPT>通过配置表创建类型</DESCRIPT>
@@ -101,6 +91,16 @@
      <CMPNAME>CREATE_DATA_BY_JSON</CMPNAME>
      <LANGU>E</LANGU>
      <DESCRIPT>Create a filled data object from JSON in one step</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>C_INFO</CMPNAME>
+     <LANGU>1</LANGU>
+     <DESCRIPT>版本、作者、仓库、许可等元信息常量</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>C_INFO</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Metadata constants: version, author, repository, license</DESCRIPT>
     </SEOCOMPOTX>
    </DESCRIPTIONS>
    <DESCRIPTIONS_SUB>
