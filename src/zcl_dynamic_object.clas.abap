@@ -101,16 +101,21 @@ CLASS zcl_dynamic_object IMPLEMENTATION.
   METHOD build_elem_descr.
 
     " Returns a type descriptor for an elementary type specification
-    " (INTTY/LENGT/DECIM of the field description table)
+    " (INTTY/LENGT/DECIM of the field description table).
+    " LENGT/DECIM are DDIC text-like fields and need explicit conversion
+    " for the numeric RTTS factory parameters.
+    DATA(lv_length) = CONV i( lengt ).
+    DATA(lv_decimals) = CONV i( decim ).
+
     CASE intty.
       WHEN 'P'.
-        descr = cl_abap_elemdescr=>get_p( p_length = lengt p_decimals = decim ).
+        descr = cl_abap_elemdescr=>get_p( p_length = lv_length p_decimals = lv_decimals ).
       WHEN 'C'.
-        descr = cl_abap_elemdescr=>get_c( p_length = lengt ).
+        descr = cl_abap_elemdescr=>get_c( p_length = lv_length ).
       WHEN 'N'.
-        descr = cl_abap_elemdescr=>get_n( p_length = lengt ).
+        descr = cl_abap_elemdescr=>get_n( p_length = lv_length ).
       WHEN 'X'.
-        descr = cl_abap_elemdescr=>get_x( p_length = lengt ).
+        descr = cl_abap_elemdescr=>get_x( p_length = lv_length ).
       WHEN 'g'.
         descr = cl_abap_elemdescr=>get_string( ).
       WHEN 'I'.
