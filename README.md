@@ -94,6 +94,22 @@ You can also specify the underlying ABAP type, such as `( INTTY = 'C' LENGT= 50 
 在 Usage 1 中，如果给 field_tab 传入 STRUF，如 `SFLIGHT-CARRID` 或 `S_CARR_ID`，则会生成对应类型，而不是默认的 String 类型；
 也可以指定基础的 ABAP 类型，例如 `( INTTY = 'C' LENGT = 50 )` 或者 `( INTTY = 'P' LENGT = 8 DECIM = 2 )`, 这将会创建指定类型和长度的变量。
 
+### Usage 4 Name mapping  字段名映射
+
+JSON keys longer than 30 characters (or otherwise invalid as ABAP component names) can be mapped to valid names via `NAME_MAP`. The mapping entries are matched case insensitively; if a mapped target itself violates the ABAP name rules (>30 characters, invalid characters, leading digit, `-`), `INVALID_FIELD_NAME` is raised. `CREATE_DATA` fills the values using the same mapping.
+
+JSON key 超过 30 位（或不能作为 ABAP 组件名）时，可以通过 `NAME_MAP` 映射为合法名字；映射条目按大小写不敏感匹配。如果映射目标本身不合法（超长、非法字符、数字开头、含 `-`），同样抛 `INVALID_FIELD_NAME`。`CREATE_DATA` 填值使用同一映射。
+
+```ABAP
+  DATA(lt_map) = VALUE zcl_dynamic_object=>ty_name_map(
+    ( json = 'aVeryLongJsonKeyNameThatExceedsThirtyCharactersXyz' abap = 'SHORT_NAME' ) ).
+
+  lr_type = zcl_dynamic_object=>create_main( json_data = json_data
+                                             no_type   = ''
+                                             name_map  = lt_map ).
+  " components: SHORT_NAME instead of the 50 character key
+```
+
 ## ⚠️ Notion 重要说明
 
 This is a new project. The author cannot guarantee that it will always run correctly. Therefore, please test it thoroughly before using it in a production environment.

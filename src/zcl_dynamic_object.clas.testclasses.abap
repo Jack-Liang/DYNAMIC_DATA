@@ -141,18 +141,24 @@ CLASS ltcl_dynamic_type DEFINITION FINAL
     METHODS create_data_invalid_json FOR TESTING.
     METHODS walker_emits_typed_rows FOR TESTING RAISING zcx_dynamic_json_error zcx_dynamic_name_error.
     METHODS elem_c_length_diagnosis FOR TESTING.
+    METHODS name_map_shortens_long_key FOR TESTING.
+    METHODS name_map_invalid_target_raises FOR TESTING.
+    METHODS name_map_dash_target_raises FOR TESTING.
+    METHODS create_data_fills_mapped_name FOR TESTING.
 
     METHODS build_by_json
       IMPORTING
-        json    TYPE string
-        no_type TYPE c DEFAULT abap_true
+        json     TYPE string
+        no_type  TYPE c DEFAULT abap_true
+        name_map TYPE zcl_dynamic_object=>ty_name_map OPTIONAL
       RETURNING
         VALUE(result) TYPE REF TO cl_abap_datadescr.
 
     METHODS build_data_by_json
       IMPORTING
-        json    TYPE string
-        no_type TYPE c DEFAULT abap_true
+        json     TYPE string
+        no_type  TYPE c DEFAULT abap_true
+        name_map TYPE zcl_dynamic_object=>ty_name_map OPTIONAL
       RETURNING
         VALUE(result) TYPE REF TO data.
 
@@ -171,7 +177,8 @@ CLASS ltcl_dynamic_type DEFINITION FINAL
 
     METHODS create_json_subrc
       IMPORTING
-        json TYPE string
+        json     TYPE string
+        name_map TYPE zcl_dynamic_object=>ty_name_map OPTIONAL
       RETURNING
         VALUE(result) TYPE i.
 
@@ -617,6 +624,66 @@ CLASS ltcl_dynamic_type IMPLEMENTATION.
 
   ENDMETHOD.
 
+  METHOD name_map_shortens_long_key.
+
+    " An over long JSON key is mapped to a valid ABAP component name
+    " (mapping entries are matched case insensitively)
+    DATA(lt_map) = VALUE zcl_dynamic_object=>ty_name_map(
+      ( json = 'aVeryLongJsonKeyNameThatExceedsThirtyCharactersXyz' abap = 'short_name' ) ).
+
+    DATA(lo_struct) = CAST cl_abap_structdescr( build_by_json(
+      json     = `{"aVeryLongJsonKeyNameThatExceedsThirtyCharactersXyz": 1}`
+      no_type  = abap_false
+      name_map = lt_map ) ).
+
+    cl_abap_unit_assert=>assert_equals(
+      exp = cl_abap_typedescr=>typekind_int
+      act = component( struct = lo_struct name = 'SHORT_NAME' )->type_kind
+      msg = 'mapped component must exist with inferred type' ).
+
+  ENDMETHOD.
+
+  METHOD name_map_invalid_target_raises.
+
+    " A mapped target that itself violates the ABAP name rules raises
+    DATA(lt_map) = VALUE zcl_dynamic_object=>ty_name_map(
+      ( json = 'X' abap = 'THIS_TARGET_NAME_IS_DEFINITELY_TOO_LONG_XYZ' ) ).
+
+    cl_abap_unit_assert=>assert_equals(
+      exp = 5 " invalid_field_name
+      act = create_json_subrc( json = `{"x": 1}` name_map = lt_map )
+      msg = 'invalid_field_name expected for over long mapping target' ).
+
+  ENDMETHOD.
+
+  METHOD name_map_dash_target_raises.
+
+    DATA(lt_map) = VALUE zcl_dynamic_object=>ty_name_map(
+      ( json = 'X' abap = 'A-B' ) ).
+
+    cl_abap_unit_assert=>assert_equals(
+      exp = 5 " invalid_field_name
+      act = create_json_subrc( json = `{"x": 1}` name_map = lt_map )
+      msg = 'invalid_field_name expected for mapping target with dash' ).
+
+  ENDMETHOD.
+
+  METHOD create_data_fills_mapped_name.
+
+    DATA(lt_map) = VALUE zcl_dynamic_object=>ty_name_map(
+      ( json = 'aVeryLongJsonKeyNameThatExceedsThirtyCharactersXyz' abap = 'short_name' ) ).
+
+    DATA(lr_data) = build_data_by_json(
+      json     = `{"aVeryLongJsonKeyNameThatExceedsThirtyCharactersXyz": "hi"}`
+      name_map = lt_map ).
+
+    ASSIGN lr_data->* TO FIELD-SYMBOL(<wa>).
+    ASSIGN COMPONENT 'SHORT_NAME' OF STRUCTURE <wa> TO FIELD-SYMBOL(<mapped>).
+    cl_abap_unit_assert=>assert_subrc( msg = 'mapped component missing' ).
+    cl_abap_unit_assert=>assert_equals( exp = 'hi' act = <mapped> ).
+
+  ENDMETHOD.
+
   METHOD walker_emits_typed_rows.
 
     " Diagnostic: inspect the raw rows the walker produces, before any
@@ -649,6 +716,7 @@ CLASS ltcl_dynamic_type IMPLEMENTATION.
       EXPORTING
         json_data            = json
         no_type              = no_type
+        name_map             = name_map
       RECEIVING
         ref_type             = result
       EXCEPTIONS
@@ -689,6 +757,7 @@ CLASS ltcl_dynamic_type IMPLEMENTATION.
       EXPORTING
         json_data          = json
         no_type            = no_type
+        name_map           = name_map
       RECEIVING
         ref_data           = result
       EXCEPTIONS
@@ -732,6 +801,7 @@ CLASS ltcl_dynamic_type IMPLEMENTATION.
     CALL METHOD zcl_dynamic_object=>create_main
       EXPORTING
         json_data            = json
+        name_map             = name_map
       RECEIVING
         ref_type             = DATA(lr_unused)
       EXCEPTIONS

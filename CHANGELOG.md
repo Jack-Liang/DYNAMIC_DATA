@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented in this file.
 
+## 2.3.0 - 2026-09-28
+
+### Added
+
+- `NAME_MAP` parameter for `CREATE_MAIN` and `CREATE_DATA`: maps over
+  long or otherwise invalid JSON keys to valid ABAP component names.
+  Entries are matched case insensitively; a mapped target that itself
+  violates the ABAP name rules raises `INVALID_FIELD_NAME`. Type
+  generation and value population (`CREATE_DATA`) use the same mapping.
+- Demo report section `Usage 5` and four new unit tests.
+
 ## 2.2.1 - 2026-09-28
 
 ### Fixed

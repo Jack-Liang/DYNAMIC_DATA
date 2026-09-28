@@ -16,6 +16,7 @@ CLASS lcl_demo DEFINITION FINAL CREATE PRIVATE.
       usage_json_default,
       usage_json_inferred,
       usage_create_data,
+      usage_name_map,
       edge_cases,
       create_by_json
         IMPORTING
@@ -56,6 +57,7 @@ CLASS lcl_demo IMPLEMENTATION.
     usage_json_default( ).
     usage_json_inferred( ).
     usage_create_data( ).
+    usage_name_map( ).
     edge_cases( ).
 
   ENDMETHOD.
@@ -146,6 +148,43 @@ CLASS lcl_demo IMPLEMENTATION.
       ASSIGN COMPONENT 'LEVEL' OF STRUCTURE <skill> TO FIELD-SYMBOL(<skill_level>).
       WRITE: / '  ', <skill_name>, <skill_level>.
     ENDLOOP.
+
+  ENDMETHOD.
+
+
+  METHOD usage_name_map.
+
+    headline( 'Usage 5: NAME_MAP - map over long JSON keys to valid ABAP names' ).
+
+    DATA(lv_json) =
+      `{ "aVeryLongJsonKeyNameThatExceedsThirtyCharactersXyz": 1,`
+      && ` "normal": 2 }`.
+
+    DATA(lt_map) = VALUE zcl_dynamic_object=>ty_name_map(
+      ( json = 'aVeryLongJsonKeyNameThatExceedsThirtyCharactersXyz' abap = 'SHORT_NAME' ) ).
+
+    CALL METHOD zcl_dynamic_object=>create_main
+      EXPORTING
+        json_data            = lv_json
+        no_type              = abap_false
+        name_map             = lt_map
+      RECEIVING
+        ref_type             = DATA(lr_type)
+      EXCEPTIONS
+        unsupported_type     = 1
+        execution_failed     = 2
+        duplicate_components = 3
+        invalid_json         = 4
+        invalid_field_name   = 5
+        OTHERS               = 6.
+
+    IF sy-subrc <> 0.
+      WRITE: / '  create_main raised exception, sy-subrc =', sy-subrc.
+      RETURN.
+    ENDIF.
+
+    print_type( ir_descr = lr_type
+                iv_title = 'short_name / normal' ).
 
   ENDMETHOD.
 

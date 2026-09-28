@@ -177,6 +177,7 @@ CLASS lcl_json_walker DEFINITION FINAL CREATE PRIVATE.
       IMPORTING
         !json        TYPE string
         !infer_types TYPE abap_bool
+        !name_map    TYPE zcl_dynamic_object=>ty_name_map OPTIONAL
       EXPORTING
         !root_type     TYPE zdoe_fldtype
         !root_is_array TYPE abap_bool
@@ -189,6 +190,7 @@ CLASS lcl_json_walker DEFINITION FINAL CREATE PRIVATE.
       IMPORTING
         !nodes       TYPE lcl_json_parser=>ty_nodes
         !infer_types TYPE abap_bool
+        !name_map    TYPE zcl_dynamic_object=>ty_name_map OPTIONAL
       EXPORTING
         !root_type     TYPE zdoe_fldtype
         !root_is_array TYPE abap_bool
@@ -196,6 +198,13 @@ CLASS lcl_json_walker DEFINITION FINAL CREATE PRIVATE.
       RAISING
         zcx_dynamic_json_error
         zcx_dynamic_name_error.
+
+    CLASS-METHODS map_name
+      IMPORTING
+        !json_name TYPE string
+        !name_map  TYPE zcl_dynamic_object=>ty_name_map
+      RETURNING
+        VALUE(abap_name) TYPE string.
 
   PRIVATE SECTION.
 
@@ -205,6 +214,7 @@ CLASS lcl_json_walker DEFINITION FINAL CREATE PRIVATE.
         !prefix      TYPE string
         !node_path   TYPE string
         !infer_types TYPE abap_bool
+        !name_map    TYPE zcl_dynamic_object=>ty_name_map
       CHANGING
         !rows        TYPE zdot_datadescr
       RAISING
@@ -216,6 +226,7 @@ CLASS lcl_json_walker DEFINITION FINAL CREATE PRIVATE.
         !prefix      TYPE string
         !node_path   TYPE string
         !infer_types TYPE abap_bool
+        !name_map    TYPE zcl_dynamic_object=>ty_name_map
       CHANGING
         !rows        TYPE zdot_datadescr
       RAISING
@@ -271,6 +282,7 @@ CLASS lcl_json_walker IMPLEMENTATION.
 
     walk_nodes( EXPORTING nodes       = lcl_json_parser=>parse( json )
                          infer_types = infer_types
+                         name_map    = name_map
                IMPORTING root_type     = root_type
                          root_is_array = root_is_array
                          rows          = rows ).
@@ -294,6 +306,7 @@ CLASS lcl_json_walker IMPLEMENTATION.
                                prefix = ''
                                node_path = '/'
                                infer_types = infer_types
+                               name_map = name_map
                      CHANGING  rows = rows ).
       WHEN lcl_json_parser=>c_kind-array.
         root_type = c_fieldtype_table.
@@ -302,6 +315,7 @@ CLASS lcl_json_walker IMPLEMENTATION.
                               prefix = ''
                               node_path = '/'
                               infer_types = infer_types
+                              name_map = name_map
                     CHANGING  rows = rows ).
       WHEN OTHERS.
         RAISE EXCEPTION TYPE zcx_dynamic_json_error
@@ -315,8 +329,11 @@ CLASS lcl_json_walker IMPLEMENTATION.
 
     LOOP AT nodes ASSIGNING FIELD-SYMBOL(<child>) WHERE path = node_path.
 
-      validate_name( to_upper( <child>-name ) ).
-      DATA(lv_child_prefix) = join_prefix( prefix = prefix name = to_upper( <child>-name ) ).
+      DATA(lv_name) = map_name( json_name = to_upper( <child>-name )
+                                name_map  = name_map ).
+
+      validate_name( lv_name ).
+      DATA(lv_child_prefix) = join_prefix( prefix = prefix name = lv_name ).
 
       CASE <child>-kind.
         WHEN lcl_json_parser=>c_kind-object.
@@ -327,6 +344,7 @@ CLASS lcl_json_walker IMPLEMENTATION.
                                 prefix      = lv_child_prefix
                                 node_path   = <child>-path && <child>-name && '/'
                                 infer_types = infer_types
+                                name_map    = name_map
                       CHANGING  rows        = rows ).
 
         WHEN lcl_json_parser=>c_kind-array.
@@ -334,6 +352,7 @@ CLASS lcl_json_walker IMPLEMENTATION.
                                prefix      = lv_child_prefix
                                node_path   = <child>-path && <child>-name && '/'
                                infer_types = infer_types
+                               name_map    = name_map
                      CHANGING  rows        = rows ).
 
         WHEN lcl_json_parser=>c_kind-number.
@@ -392,6 +411,7 @@ CLASS lcl_json_walker IMPLEMENTATION.
                                 prefix      = prefix
                                 node_path   = <item>-path && <item>-name && '/'
                                 infer_types = infer_types
+                                name_map    = name_map
                       CHANGING  rows        = rows ).
 
         WHEN lcl_json_parser=>c_kind-array.
@@ -557,6 +577,17 @@ CLASS lcl_json_walker IMPLEMENTATION.
 
   ENDMETHOD.
 
+
+  METHOD map_name.
+
+    READ TABLE name_map ASSIGNING FIELD-SYMBOL(<map>) WITH KEY json = json_name.
+    IF sy-subrc = 0.
+      abap_name = to_upper( <map>-abap ).
+    ELSE.
+      abap_name = json_name.
+    ENDIF.
+
+  ENDMETHOD.
 ENDCLASS.
 
 
@@ -571,8 +602,9 @@ CLASS lcl_json_filler DEFINITION FINAL CREATE PRIVATE.
   PUBLIC SECTION.
     CLASS-METHODS fill
       IMPORTING
-        !nodes TYPE lcl_json_parser=>ty_nodes
-        !data  TYPE REF TO data
+        !nodes    TYPE lcl_json_parser=>ty_nodes
+        !data     TYPE REF TO data
+        !name_map TYPE zcl_dynamic_object=>ty_name_map
       RAISING
         zcx_dynamic_json_error.
 
@@ -582,6 +614,7 @@ CLASS lcl_json_filler DEFINITION FINAL CREATE PRIVATE.
         IMPORTING
           !nodes     TYPE lcl_json_parser=>ty_nodes
           !node_path TYPE string
+          !name_map  TYPE zcl_dynamic_object=>ty_name_map
         CHANGING
           !c_data    TYPE any
         RAISING
@@ -590,6 +623,7 @@ CLASS lcl_json_filler DEFINITION FINAL CREATE PRIVATE.
         IMPORTING
           !nodes     TYPE lcl_json_parser=>ty_nodes
           !node_path TYPE string
+          !name_map  TYPE zcl_dynamic_object=>ty_name_map
         CHANGING
           !c_data    TYPE STANDARD TABLE
         RAISING
@@ -618,10 +652,12 @@ CLASS lcl_json_filler IMPLEMENTATION.
       WHEN lcl_json_parser=>c_kind-object.
         fill_structure( EXPORTING nodes = nodes
                                 node_path = '/'
+                                name_map = name_map
                         CHANGING  c_data = <data> ).
       WHEN lcl_json_parser=>c_kind-array.
         fill_table( EXPORTING nodes = nodes
                               node_path = '/'
+                              name_map = name_map
                     CHANGING  c_data = <data> ).
       WHEN OTHERS.
         RAISE EXCEPTION TYPE zcx_dynamic_json_error
@@ -635,7 +671,10 @@ CLASS lcl_json_filler IMPLEMENTATION.
 
     LOOP AT nodes ASSIGNING FIELD-SYMBOL(<child>) WHERE path = node_path.
 
-      ASSIGN COMPONENT to_upper( <child>-name ) OF STRUCTURE c_data
+      ASSIGN COMPONENT lcl_json_walker=>map_name(
+                        json_name = to_upper( <child>-name )
+                        name_map  = name_map )
+             OF STRUCTURE c_data
         TO FIELD-SYMBOL(<comp>).
       IF sy-subrc <> 0.
         RAISE EXCEPTION TYPE zcx_dynamic_json_error
@@ -646,10 +685,12 @@ CLASS lcl_json_filler IMPLEMENTATION.
         WHEN lcl_json_parser=>c_kind-object.
           fill_structure( EXPORTING nodes     = nodes
                                   node_path = <child>-path && <child>-name && '/'
+                                  name_map  = name_map
                           CHANGING  c_data    = <comp> ).
         WHEN lcl_json_parser=>c_kind-array.
           fill_table( EXPORTING nodes     = nodes
                                node_path = <child>-path && <child>-name && '/'
+                               name_map  = name_map
                       CHANGING  c_data    = <comp> ).
         WHEN OTHERS.
           set_value( EXPORTING node = <child> CHANGING c_data = <comp> ).
@@ -670,6 +711,7 @@ CLASS lcl_json_filler IMPLEMENTATION.
         WHEN lcl_json_parser=>c_kind-object.
           fill_structure( EXPORTING nodes     = nodes
                                   node_path = <item>-path && <item>-name && '/'
+                                  name_map  = name_map
                           CHANGING  c_data    = <line> ).
         WHEN lcl_json_parser=>c_kind-number OR lcl_json_parser=>c_kind-string
           OR lcl_json_parser=>c_kind-bool.

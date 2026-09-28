@@ -8,9 +8,16 @@ CLASS zcl_dynamic_object DEFINITION
     TYPES:
       ty_split TYPE TABLE OF string .
 
+    TYPES:
+      BEGIN OF ty_name_map_entry,
+        json TYPE string,
+        abap TYPE string,
+      END OF ty_name_map_entry,
+      ty_name_map TYPE SORTED TABLE OF ty_name_map_entry WITH UNIQUE KEY json .
+
     CONSTANTS:
       BEGIN OF c_info,
-        version    TYPE string VALUE '2.2.1',
+        version    TYPE string VALUE '2.3.0',
         author     TYPE string VALUE 'Jack Liang',
         email      TYPE string VALUE 'jack.liang.world@gmail.com',
         repository TYPE string VALUE 'https://github.com/Jack-Liang/DYNAMIC_DATA',
@@ -23,6 +30,7 @@ CLASS zcl_dynamic_object DEFINITION
         VALUE(type)      TYPE zdoe_fldtype OPTIONAL
         VALUE(json_data) TYPE string OPTIONAL
         VALUE(no_type)   TYPE c DEFAULT abap_true
+        VALUE(name_map)  TYPE ty_name_map OPTIONAL
       RETURNING
         VALUE(ref_type)  TYPE REF TO cl_abap_datadescr
       EXCEPTIONS
@@ -36,6 +44,7 @@ CLASS zcl_dynamic_object DEFINITION
       IMPORTING
         VALUE(json_data) TYPE string
         VALUE(no_type)   TYPE c DEFAULT abap_true
+        VALUE(name_map)  TYPE ty_name_map OPTIONAL
       RETURNING
         VALUE(ref_data)  TYPE REF TO data
       EXCEPTIONS
@@ -101,6 +110,11 @@ CLASS zcl_dynamic_object DEFINITION
         !field_tab TYPE zdot_datadescr
         !split_tab TYPE ty_split .
     CLASS-METHODS put_parent_field_first .
+    CLASS-METHODS normalize_name_map
+      IMPORTING
+        !name_map       TYPE ty_name_map
+      RETURNING
+        VALUE(result) TYPE ty_name_map .
 ENDCLASS.
 
 
@@ -333,6 +347,7 @@ CLASS zcl_dynamic_object IMPLEMENTATION.
     TRY.
         lcl_json_walker=>walk( EXPORTING json        = json_data
                                          infer_types = boolc( no_type <> abap_true )
+                                         name_map    = normalize_name_map( name_map )
                                IMPORTING root_type      = type
                                          root_is_array   = DATA(lv_root_is_array)
                                          rows            = gt_field_tab ).
@@ -386,10 +401,13 @@ METHOD create_data.
   TRY.
       DATA(lt_nodes) = lcl_json_parser=>parse( json_data ).
 
+      DATA(lt_name_map) = normalize_name_map( name_map ).
+
       lcl_json_walker=>walk_nodes(
         EXPORTING
           nodes       = lt_nodes
           infer_types = boolc( no_type <> abap_true )
+          name_map    = lt_name_map
         IMPORTING
           root_type     = DATA(lv_type)
           root_is_array = DATA(lv_root_is_array)
@@ -421,7 +439,7 @@ METHOD create_data.
   CREATE DATA ref_data TYPE HANDLE lr_type.
 
   TRY.
-      lcl_json_filler=>fill( nodes = lt_nodes data = ref_data ).
+      lcl_json_filler=>fill( nodes = lt_nodes data = ref_data name_map = lt_name_map ).
     CATCH zcx_dynamic_json_error.
       RAISE execution_failed.
   ENDTRY.
@@ -548,6 +566,19 @@ ENDMETHOD.
     ENDLOOP.
 
     gt_field_tab = lt_field.
+
+  ENDMETHOD.
+
+  METHOD normalize_name_map.
+
+    " JSON keys are matched case insensitively after upper casing
+    LOOP AT name_map ASSIGNING FIELD-SYMBOL(<map>).
+      READ TABLE result TRANSPORTING NO FIELDS WITH KEY json = to_upper( <map>-json ).
+      IF sy-subrc <> 0.
+        INSERT VALUE #( json = to_upper( <map>-json )
+                        abap = to_upper( <map>-abap ) ) INTO TABLE result.
+      ENDIF.
+    ENDLOOP.
 
   ENDMETHOD.
 ENDCLASS.
