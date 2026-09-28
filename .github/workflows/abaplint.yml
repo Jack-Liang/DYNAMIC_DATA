@@ -6,10 +6,15 @@ on:
 
 jobs:
   abaplint:
+    timeout-minutes: 10
+    name: abaplint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Run abaplint
-        uses: abaplint/actions-abaplint@main
+      - uses: actions/setup-node@v4
         with:
-          configFile: abaplint.jsonc
+          node-version: 20
+      - name: Run abaplint
+        run: |
+          npm -g install @abaplint/cli
+          abaplint --format codeframe
