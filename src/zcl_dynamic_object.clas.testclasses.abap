@@ -145,6 +145,9 @@ CLASS ltcl_dynamic_type DEFINITION FINAL
     METHODS name_map_invalid_target_raises FOR TESTING.
     METHODS name_map_dash_target_raises FOR TESTING.
     METHODS create_data_fills_mapped_name FOR TESTING.
+    METHODS deep_nested_struct FOR TESTING.
+    METHODS deep_nested_table_in_table FOR TESTING.
+    METHODS create_data_deep_nested FOR TESTING.
 
     METHODS build_by_json
       IMPORTING
@@ -871,6 +874,76 @@ CLASS ltcl_dynamic_type IMPLEMENTATION.
     cl_abap_unit_assert=>assert_equals(
       exp = cl_abap_typedescr=>typekind_string
       act = descr->type_kind ).
+
+  ENDMETHOD.
+
+
+  METHOD deep_nested_struct.
+
+    " struct > struct > struct: type building must recurse two levels.
+    " Guards the depth handling that the tree refactor (TODO #2) reworks;
+    " on real systems this was never covered before (only one nesting
+    " level existed in the suite).
+    DATA(lo_struct) = CAST cl_abap_structdescr( build_by_json(
+      `{ "name": "Jack",`
+      && ` "address": { "city": "Paris",`
+      && `               "geo": { "lat": 1.5, "lng": 2.5 } } }` ) ).
+
+    cl_abap_unit_assert=>assert_equals(
+      exp = 2
+      act = lines( lo_struct->get_components( ) ) ).
+
+    DATA(lo_address) = CAST cl_abap_structdescr(
+      component( struct = lo_struct name = 'ADDRESS' ) ).
+    cl_abap_unit_assert=>assert_equals( exp = 2 act = lines( lo_address->get_components( ) ) ).
+    assert_string_kind( component( struct = lo_address name = 'CITY' ) ).
+
+    DATA(lo_geo) = CAST cl_abap_structdescr(
+      component( struct = lo_address name = 'GEO' ) ).
+    cl_abap_unit_assert=>assert_equals( exp = 2 act = lines( lo_geo->get_components( ) ) ).
+    assert_string_kind( component( struct = lo_geo name = 'LAT' ) ).
+    assert_string_kind( component( struct = lo_geo name = 'LNG' ) ).
+
+  ENDMETHOD.
+
+
+  METHOD deep_nested_table_in_table.
+
+    " table > struct > table: array items containing a nested array
+    DATA(lo_struct) = CAST cl_abap_structdescr( build_by_json(
+      `{ "skills": [ { "name": "ABAP",`
+      && `               "tags": [ { "label": "core" } ] } ] }` ) ).
+
+    cl_abap_unit_assert=>assert_equals(
+      exp = 1
+      act = lines( lo_struct->get_components( ) ) ).
+
+    DATA(lo_skills_line) = CAST cl_abap_structdescr(
+      table_line( component( struct = lo_struct name = 'SKILLS' ) ) ).
+    cl_abap_unit_assert=>assert_equals( exp = 2 act = lines( lo_skills_line->get_components( ) ) ).
+    assert_string_kind( component( struct = lo_skills_line name = 'NAME' ) ).
+
+    DATA(lo_tags_line) = CAST cl_abap_structdescr(
+      table_line( component( struct = lo_skills_line name = 'TAGS' ) ) ).
+    cl_abap_unit_assert=>assert_equals( exp = 1 act = lines( lo_tags_line->get_components( ) ) ).
+    assert_string_kind( component( struct = lo_tags_line name = 'LABEL' ) ).
+
+  ENDMETHOD.
+
+
+  METHOD create_data_deep_nested.
+
+    " Values must land two levels deep (CREATE_DATA_BY_JSON fill path)
+    DATA(lr_data) = build_data_by_json(
+      `{ "company": "ACME",`
+      && ` "headquarters": { "country": "FR",`
+      && `   "location": { "city": "Paris" } } }` ).
+
+    ASSIGN lr_data->* TO FIELD-SYMBOL(<wa>).
+    ASSIGN COMPONENT 'HEADQUARTERS' OF STRUCTURE <wa> TO FIELD-SYMBOL(<hq>).
+    ASSIGN COMPONENT 'LOCATION' OF STRUCTURE <hq> TO FIELD-SYMBOL(<loc>).
+    ASSIGN COMPONENT 'CITY' OF STRUCTURE <loc> TO FIELD-SYMBOL(<city>).
+    cl_abap_unit_assert=>assert_equals( exp = 'Paris' act = <city> ).
 
   ENDMETHOD.
 

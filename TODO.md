@@ -48,6 +48,10 @@
   当前套件最深只有一层嵌套，而 CI 里 `SYSTEM_CALLSTACK` stub 使深度恒为 0，
   两层嵌套路径目前既无真机用例覆盖、CI 也测不准（会静默漏字段）。重构恰好要删掉这个栈帧 hack，
   这个用例同时守护重构前后行为。
+  **进度（2026-09-28，分支 `feature/tree-refactor`）**：已补 3 个用例
+  （`deep_nested_struct` / `deep_nested_table_in_table` / `create_data_deep_nested`），
+  本地验证：真机语义下应绿（按代码推演），open-abap 里如预期失败（深度恒 0）→ 已加 CI skip
+  （注明"删掉栈帧 hack 后移除"）。**待真机跑绿后再动重构**。
 - **线索**：树形 IR 方向本身没错；怀疑点集中在"本地类引用作 RETURNING 表 + LOOP INTO ref + 解引用"
   链路的某个 ABAP 语义。有本地测试后按二分法定位。
 - **完成标准**：四个 hack 全部删除、类在调用之间完全无状态、全部单测绿、行为不变。
