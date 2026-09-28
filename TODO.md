@@ -30,9 +30,10 @@
 - **进度（2026-09-28）**：CI 基建已落地并本地端到端验证（`sh bin/test.sh`：34 绿 / 3 skip / exit 0）——
   `bin/test.sh`（src+stub 合并到 `ci-build/` 后转译执行）、`ci/dtel-stubs/`（3 个 stub DTEL）、
   `transpile_for_testing.json`（含 skip 清单）、`package.json`（锁定 2.13.93）、
-  `.github/workflows/test.yml`、`.gitignore`。待办：push 后确认首次 CI 运行；
-  向 open-abap-core 提 `get_p` 实现的 PR（合入后删除 3 个 skip）；
-  spike 临时目录已清理。
+  `.github/workflows/test.yml`、`.gitignore`。
+  **首跑已绿（2026-09-28）**：main（7ef9b0c）与 feature/tree-refactor（5eb4d88）上的
+  abaplint + unit-tests 四个运行全部 success，本项完成。
+  遗留跟进：向 open-abap-core 提 `get_p` 实现的 PR（合入后删除 3 个 skip）。
 
 ## 2. 树形类型构建重构（重启 2.2.0 失败的尝试）
 
