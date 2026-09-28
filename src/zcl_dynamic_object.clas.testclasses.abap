@@ -287,11 +287,10 @@ CLASS ltcl_dynamic_type IMPLEMENTATION.
       exp = cl_abap_typedescr=>typekind_packed
       act = lo_elem->type_kind ).
     cl_abap_unit_assert=>assert_equals( exp = 1 act = lo_elem->decimals ).
-    cl_abap_unit_assert=>assert_number_between(
-      lower = 2
-      upper = 16
-      number = lo_elem->length
-      msg = 'packed length must fit the literal digits' ).
+    cl_abap_unit_assert=>assert_equals(
+      exp = 3
+      act = lo_elem->length
+      msg = '88.5 needs 3 digits -> P length 3' ).
 
   ENDMETHOD.
 

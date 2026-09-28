@@ -165,22 +165,13 @@ CLASS zcl_dynamic_object IMPLEMENTATION.
                                     object   = <fs_datadescr>-struf
                           CHANGING  comp_tab = lt_comp[] ).
           ELSEIF <fs_datadescr>-intty IS NOT INITIAL.
-            "创建一个本地类型 作为参考 Create a local type for reference
-            CASE <fs_datadescr>-intty.
-              WHEN 'P'.
-                CREATE DATA l_dyn_obj TYPE p LENGTH <fs_datadescr>-lengt DECIMALS <fs_datadescr>-decim.
-              WHEN 'C' OR 'N' OR 'X'.
-                CREATE DATA l_dyn_obj TYPE (<fs_datadescr>-intty) LENGTH <fs_datadescr>-lengt.
-              WHEN 'g'.
-                CREATE DATA l_dyn_obj TYPE string.
-              WHEN OTHERS.
-                CREATE DATA l_dyn_obj TYPE (<fs_datadescr>-intty).
-            ENDCASE.
-
-            append_field( EXPORTING fldname  = <fs_split>
-                                    method   = c_des_methd-by_data_ref
-                                    object   = l_dyn_obj
-                          CHANGING  comp_tab = lt_comp[] ).
+            " Elementary type specification (INTTY/LENGT/DECIM): build the
+            " descriptor directly via RTTS factories. CREATE DATA with the
+            " text-like DDIC fields in LENGTH/DECIMALS is unreliable.
+            APPEND VALUE #( name = <fs_split>
+                            type = build_elem_descr( intty = <fs_datadescr>-intty
+                                                     lengt = <fs_datadescr>-lengt
+                                                     decim = <fs_datadescr>-decim ) ) TO lt_comp.
 
           ELSEIF <fs_datadescr>-refty IS BOUND.
             append_field( EXPORTING fldname  = <fs_split>

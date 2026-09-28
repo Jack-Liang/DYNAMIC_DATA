@@ -16,6 +16,10 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Elementary `INTTY` specifications are built via RTTS factories
+  (`CL_ABAP_ELEMDESCR=>GET_P` etc.) with explicit `CONV i`. Passing the
+  text-like DDIC fields `LENGT`/`DECIM` into `CREATE DATA ... LENGTH`
+  produced wrong lengths (e.g. `C` always came out as length 2).
 - Fields with initial values (`0`, `""`) are no longer dropped when
   generating from JSON.
 - A root level empty JSON array (`[]`) no longer dumps; it produces
