@@ -325,7 +325,14 @@ CLASS ltcl_dynamic_type IMPLEMENTATION.
     cl_abap_unit_assert=>assert_equals(
       exp = cl_abap_typedescr=>typekind_char
       act = lo_elem->type_kind ).
-    cl_abap_unit_assert=>assert_equals( exp = 1 act = lo_elem->length ).
+
+    " ->length reports bytes for character types on some releases,
+    " measure in character mode instead
+    DATA lr_flag_data TYPE REF TO data.
+    CREATE DATA lr_flag_data TYPE HANDLE lo_elem.
+    ASSIGN lr_flag_data->* TO FIELD-SYMBOL(<flag>).
+    DESCRIBE FIELD <flag> LENGTH DATA(lv_chars) IN CHARACTER MODE.
+    cl_abap_unit_assert=>assert_equals( exp = 1 act = lv_chars ).
 
   ENDMETHOD.
 
@@ -580,22 +587,33 @@ CLASS ltcl_dynamic_type IMPLEMENTATION.
 
   METHOD elem_c_length_diagnosis.
 
-    " Bisects the FLAG C(2) issue: first the RTTS factory itself,
-    " then the public CREATE_MAIN path with an explicit C/1 row
+    " The RTTI length attribute is reported in different units on some
+    " releases (bytes for character types). The authoritative check is
+    " DESCRIBE FIELD ... IN CHARACTER MODE.
+    DATA lr_data TYPE REF TO data.
+
+    DATA(lo_elem) = cl_abap_elemdescr=>get_c( p_length = 1 ).
+    CREATE DATA lr_data TYPE HANDLE lo_elem.
+    ASSIGN lr_data->* TO FIELD-SYMBOL(<char>).
+    DESCRIBE FIELD <char> LENGTH DATA(lv_chars) IN CHARACTER MODE.
     cl_abap_unit_assert=>assert_equals(
       exp = 1
-      act = cl_abap_elemdescr=>get_c( p_length = 1 )->length
-      msg = 'get_c(1) must produce length 1' ).
+      act = lv_chars
+      msg = 'get_c(1) must produce a one character type' ).
 
     DATA(lo_struct) = CAST cl_abap_structdescr( build_by_field_tab(
       field_tab = VALUE zdot_datadescr(
                     ( fldname = 'FLAG' fldtype = 'F' intty = 'C' lengt = 1 ) )
       type      = 'S' ) ).
 
+    DATA(lo_flag) = CAST cl_abap_elemdescr( component( struct = lo_struct name = 'FLAG' ) ).
+    CREATE DATA lr_data TYPE HANDLE lo_flag.
+    ASSIGN lr_data->* TO <char>.
+    DESCRIBE FIELD <char> LENGTH lv_chars IN CHARACTER MODE.
     cl_abap_unit_assert=>assert_equals(
       exp = 1
-      act = CAST cl_abap_elemdescr( component( struct = lo_struct name = 'FLAG' ) )->length
-      msg = 'explicit C/1 field row must build C(1)' ).
+      act = lv_chars
+      msg = 'explicit C/1 field row must build a one character type' ).
 
   ENDMETHOD.
 

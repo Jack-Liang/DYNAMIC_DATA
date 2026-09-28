@@ -271,6 +271,8 @@ CLASS lcl_demo IMPLEMENTATION.
 
   METHOD type_text.
 
+    DATA lr_val TYPE REF TO data.
+
     CASE ir_descr->type_kind.
       WHEN cl_abap_typedescr=>typekind_struct1 OR cl_abap_typedescr=>typekind_struct2.
         rv_text = 'struct'.
@@ -278,7 +280,17 @@ CLASS lcl_demo IMPLEMENTATION.
         rv_text = 'table'.
       WHEN OTHERS.
         DATA(lo_elem) = CAST cl_abap_elemdescr( ir_descr ).
-        rv_text = |{ lo_elem->type_kind } len { lo_elem->length } dec { lo_elem->decimals }|.
+        DATA lv_len TYPE i.
+        IF ir_descr->type_kind = 'C' OR ir_descr->type_kind = 'N'.
+          " ->length reports bytes for character types on some releases,
+          " show the character count instead
+          CREATE DATA lr_val TYPE HANDLE ir_descr.
+          ASSIGN lr_val->* TO FIELD-SYMBOL(<val>).
+          DESCRIBE FIELD <val> LENGTH lv_len IN CHARACTER MODE.
+        ELSE.
+          lv_len = lo_elem->length.
+        ENDIF.
+        rv_text = |{ lo_elem->type_kind } len { lv_len } dec { lo_elem->decimals }|.
     ENDCASE.
 
   ENDMETHOD.
