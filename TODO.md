@@ -70,6 +70,10 @@
   行为差异（有意为之，见 CHANGELOG 3.1.0）：缺失父段→隐式 struct；非法名/空 struct 节点→`execution_failed`
   而非 dump；带 `flag` 的入参行不再被丢弃。
 - **收官（2026-09-29）**：已合回 main（fast-forward 至 `8facb1d`），#2 完成。
+  真机验证通过（2026-09-29，含激活修复 `a83db1b`：`RAISE EXCEPTION TYPE cx_dynamic_check`
+  在真机是抽象类不能实例化，改抛具体本地类 `lcx_builder_error`）。
+  **教训入册：open-abap CI 不强制"抽象类不可实例化"检查，本地+CI 全绿仍可能真机激活失败——
+  新实现首次上真机前，涉及全局类的语义（抽象/可见性/泛型边界）要保持保守。**
 
 ## 3. 反向序列化 to_json（ABAP → JSON）
 
