@@ -2,6 +2,41 @@
 
 All notable changes to this project are documented in this file.
 
+## 3.2.0 - 2026-09-29
+
+### Added
+
+- `TO_JSON( data, name_map )`: serializes a generated (or arbitrary)
+  dynamic data object back to JSON - the inverse of
+  `CREATE_DATA_BY_JSON`. Rules:
+  - `C` length 1 serializes as `true`/`false` (the shape the JSON
+    type inference produces),
+  - character-like initial values serialize as `null` (a data object
+    cannot distinguish `null` from an empty string - `""` therefore
+    round-trips as `null`),
+  - numeric zeros are emitted as numbers (`0` is a value, not null),
+  - the packed -> character conversion quirks are normalized (the
+    trailing sign blank is condensed, a trailing minus moves to the
+    front),
+  - dates/times serialize as strings in their internal format
+    (`20260929`), which round-trips through the filler; ISO conversion
+    remains a future enhancement,
+  - references and non-standard (sorted/hashed) tables raise
+    `UNSUPPORTED_TYPE`; an unbound reference serializes as `null`.
+- `NAME_MAP` is applied in reverse (ABAP component name -> JSON key),
+  so over long keys survive a full json -> data -> json round trip.
+
+### Tests
+
+- 14 new tests in `ltcl_serialize`: exact-text rule tests (booleans,
+  null/empty, zeros and negative packed numbers, escaping incl. non
+  ASCII built from UTF-8 bytes, D/T internal format, empty tables,
+  name map, unsupported types) and round-trip tests comparing the
+  parsed node tables of input and output.
+- Known asymmetry (pre-existing, documented): root arrays of scalars
+  are built as `TABLE OF string` (walk_array only types member
+  arrays), so `[10, 20]` at the root round-trips as strings.
+
 ## 3.1.0 - 2026-09-28
 
 ### Changed

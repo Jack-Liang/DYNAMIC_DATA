@@ -80,6 +80,16 @@
 - 与 `CREATE_DATA_BY_JSON` 对称：对生成的（或任意动态）数据对象做序列化；
   bool `X`→true、初始→null、数字按类型格式化。参考 ajson 的 serializer。
 - **完成标准**：round-trip 单测（json → data → json 语义等价）。
+- **进度（2026-09-29，`aa2826b`，v3.2.0）**：**已完成（待真机验证）**。`to_json( data, name_map )`
+  + `lcl_json_serializer`（locals_imp）；14 个新测试（精确文本规则 + round-trip node 表比对），
+  本地 58/58 全绿、abaplint 0 issue。实现中固化的语义决策（CHANGELOG 3.2.0 有全表）：
+  字符类初始值→null（`""` 往返变 null，数据对象无法区分）；数字零是值不是 null；
+  P 转换尾随符号空格 CONDENSE、尾随负号前移（内核/真机同样存在的转换怪癖）；
+  X/XSTRING hex 字符串（open-abap get_x 是 todo stub，CI 测不了，**真机验证时重点**）；
+  引用/非标准表→`UNSUPPORTED_TYPE`。已知不对称（生成端既有限制）：根级标量数组建为
+  TABLE OF string，`[10,20]` 往返变字符串。**真机验证点：P 负数输出、转义输出、D/T、X hex。**
+- **后续线索**：open-abap 的 `get_x`/`get_xstring`/`get_decfloat16/34` 仍是 todo stub，
+  可照 #1275 的 get_p 模式再提上游 PR，届时 CI 即可覆盖 X 序列化。
 
 ## 4. 可选增强（按需）
 

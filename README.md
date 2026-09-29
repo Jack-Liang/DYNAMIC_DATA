@@ -111,6 +111,21 @@ JSON key 超过 30 位（或不能作为 ABAP 组件名）时，可以通过 `NA
   " components: SHORT_NAME instead of the 50 character key
 ```
 
+### Usage 5 Serialize back to JSON  反向序列化为 JSON
+
+`TO_JSON` is the inverse of `CREATE_DATA_BY_JSON`: it serializes any generated (or arbitrary) dynamic data object back to JSON. Booleans (`c` length 1) become `true`/`false`, character-like initial values become `null`, numeric zeros stay numbers, dates/times are emitted in their internal format. `NAME_MAP` is applied in reverse (ABAP name -> JSON key); reference components raise `UNSUPPORTED_TYPE`; an unbound reference serializes as `null`.
+
+`TO_JSON` 与 `CREATE_DATA_BY_JSON` 对称：把生成的（或任意动态的）数据对象序列化回 JSON。布尔（`c` 长度 1）输出 `true`/`false`，字符类初始值输出 `null`，数字零保持数字，日期/时间按内部格式输出。`NAME_MAP` 反向生效（ABAP 名 -> JSON 键）；引用组件抛 `UNSUPPORTED_TYPE`；未绑定的引用序列化为 `null`。
+
+```ABAP
+  lr_data = zcl_dynamic_object=>create_data_by_json( json_data   = json_data
+                                                     infer_types = abap_true ).
+
+  DATA(lv_json) = zcl_dynamic_object=>to_json( data     = lr_data
+                                               name_map = lt_map ).
+  " round trip: json -> data -> json
+```
+
 ## ⚠️ Notion 重要说明
 
 This is a new project. The author cannot guarantee that it will always run correctly. Therefore, please test it thoroughly before using it in a production environment.
