@@ -87,7 +87,8 @@
   P 转换尾随符号空格 CONDENSE、尾随负号前移（内核/真机同样存在的转换怪癖）；
   X/XSTRING hex 字符串（open-abap get_x 是 todo stub，CI 测不了，**真机验证时重点**）；
   引用/非标准表→`UNSUPPORTED_TYPE`。已知不对称（生成端既有限制）：根级标量数组建为
-  TABLE OF string，`[10,20]` 往返变字符串。**真机验证点：P 负数输出、转义输出、D/T、X hex。**
+  TABLE OF string，`[10,20]` 往返变字符串。
+- **收官（2026-09-29）**：真机激活 + 全套单元测试通过（含 X hex 路径），#3 完成。
 - **后续线索**：open-abap 的 `get_x`/`get_xstring`/`get_decfloat16/34` 仍是 todo stub，
   可照 #1275 的 get_p 模式再提上游 PR，届时 CI 即可覆盖 X 序列化。
 
