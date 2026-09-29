@@ -68,7 +68,8 @@
   主类删掉 `gt_field_tab`/`build_from_rows`/`structural_sub`/`put_parent_field_first`/`append_field`
   （596→288 行），44 用例 41 跑全绿 + 3 skip（get_p），深度嵌套三连在 CI 转绿（skip 已删），abaplint 0 issue。
   行为差异（有意为之，见 CHANGELOG 3.1.0）：缺失父段→隐式 struct；非法名/空 struct 节点→`execution_failed`
-  而非 dump；带 `flag` 的入参行不再被丢弃。**待真机验证后合并**。
+  而非 dump；带 `flag` 的入参行不再被丢弃。
+- **收官（2026-09-29）**：已合回 main（fast-forward 至 `8facb1d`），#2 完成。
 
 ## 3. 反向序列化 to_json（ABAP → JSON）
 
