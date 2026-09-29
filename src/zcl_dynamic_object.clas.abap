@@ -14,7 +14,7 @@ CLASS zcl_dynamic_object DEFINITION
 
     CONSTANTS:
       BEGIN OF c_info,
-        version    TYPE string VALUE '3.0.0',
+        version    TYPE string VALUE '3.1.0',
         author     TYPE string VALUE 'Jack Liang',
         email      TYPE string VALUE 'jack.liang.world@gmail.com',
         repository TYPE string VALUE 'https://github.com/Jack-Liang/DYNAMIC_DATA',
