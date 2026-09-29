@@ -33,6 +33,10 @@ All notable changes to this project are documented in this file.
 - Invalid field names and empty struct nodes in `FIELD_TAB` now raise
   `EXECUTION_FAILED` instead of dumping in the RTTS type creation;
   rows with `FLAG` set are no longer silently skipped.
+- Fixed on-system activation error: the builder error is raised via
+  the concrete local class `LCX_BUILDER_ERROR` - `CX_DYNAMIC_CHECK`
+  is abstract on real systems and cannot be instantiated (the
+  transpiled CI does not enforce abstract instantiation).
 
 ### Tests
 

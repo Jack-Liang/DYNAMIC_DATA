@@ -767,6 +767,17 @@ ENDCLASS.
 "* no empty fallback. Recursive results are buffered in explicit local
 "* variables before the RTTS calls.
 
+"* Concrete builder error: CX_DYNAMIC_CHECK itself is abstract on real
+"* systems and cannot be raised directly (the transpiled CI does not
+"* enforce abstract instantiation, so this only shows up on-system).
+
+CLASS lcx_builder_error DEFINITION INHERITING FROM cx_dynamic_check FINAL.
+ENDCLASS.
+
+CLASS lcx_builder_error IMPLEMENTATION.
+ENDCLASS.
+
+
 CLASS lcl_tree_node DEFINITION FINAL CREATE PUBLIC.
 
   PUBLIC SECTION.
@@ -984,7 +995,7 @@ CLASS lcl_type_builder IMPLEMENTATION.
             ELSEIF ls_row-fldtype = c_fieldtype_table.
               lr_line = cl_abap_elemdescr=>get_string( ).
             ELSE.
-              RAISE EXCEPTION TYPE cx_dynamic_check.
+              RAISE EXCEPTION TYPE lcx_builder_error.
             ENDIF.
           ENDIF.
 
