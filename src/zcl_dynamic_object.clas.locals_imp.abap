@@ -1053,3 +1053,333 @@ CLASS lcl_type_builder IMPLEMENTATION.
   ENDMETHOD.
 
 ENDCLASS.
+
+
+"* Serializes a generated (or arbitrary) data object back to JSON - the
+"* inverse of CREATE_DATA_BY_JSON. Rules: C length 1 is a boolean
+"* (true/false, the shape the JSON type inference produces);
+"* character-like initial values become null (a data object cannot
+"* distinguish null from an empty string); numeric zeros are emitted
+"* as numbers (0 is a value, not null); dates/times and hex fields
+"* are emitted as strings in their internal representation, which
+"* round-trips through the filler's string conversions. Numbers are
+"* converted with plain string assignment - never WRITE or string
+"* templates - because their decimal notation is country dependent.
+
+CLASS lcx_unsupported DEFINITION INHERITING FROM cx_dynamic_check FINAL.
+ENDCLASS.
+
+CLASS lcx_unsupported IMPLEMENTATION.
+ENDCLASS.
+
+
+CLASS lcl_json_serializer DEFINITION FINAL CREATE PRIVATE.
+
+  PUBLIC SECTION.
+
+    CLASS-METHODS serialize
+      IMPORTING
+        !data     TYPE REF TO data
+        !name_map TYPE zcl_dynamic_object=>ty_name_map
+      RETURNING
+        VALUE(json) TYPE string
+      RAISING
+        cx_dynamic_check.
+
+  PRIVATE SECTION.
+
+    "* 'S' structure, 'T' standard table, 'E' elementary; raises for
+    "* anything that cannot be serialized (references, non-standard
+    "* tables, unknown elementary kinds)
+    CLASS-METHODS kind_of
+      IMPORTING
+        !c_data     TYPE any
+      RETURNING
+        VALUE(kind) TYPE string
+      RAISING
+        cx_dynamic_check.
+
+    "* The serialize methods below are called with field symbols only
+    "* (generic parameter checks happen at runtime, like in the filler)
+    CLASS-METHODS serialize_structure
+      IMPORTING
+        !c_data     TYPE any
+        !name_map   TYPE zcl_dynamic_object=>ty_name_map
+      RETURNING
+        VALUE(json) TYPE string
+      RAISING
+        cx_dynamic_check.
+
+    CLASS-METHODS serialize_table
+      IMPORTING
+        !c_data     TYPE STANDARD TABLE
+        !name_map   TYPE zcl_dynamic_object=>ty_name_map
+      RETURNING
+        VALUE(json) TYPE string
+      RAISING
+        cx_dynamic_check.
+
+    CLASS-METHODS serialize_elementary
+      IMPORTING
+        !c_data     TYPE any
+      RETURNING
+        VALUE(json) TYPE string
+      RAISING
+        cx_dynamic_check.
+
+    "* escapes the content only - the callers add the surrounding quotes
+    CLASS-METHODS escape_string
+      IMPORTING
+        !text       TYPE string
+      RETURNING
+        VALUE(json) TYPE string.
+
+    "* NAME_MAP in reverse: ABAP component name -> JSON key
+    CLASS-METHODS json_key
+      IMPORTING
+        !abap_name       TYPE string
+        !name_map        TYPE zcl_dynamic_object=>ty_name_map
+      RETURNING
+        VALUE(json_name) TYPE string.
+
+ENDCLASS.
+
+CLASS lcl_json_serializer IMPLEMENTATION.
+
+  METHOD serialize.
+
+    IF data IS NOT BOUND.
+      json = 'null'.
+      RETURN.
+    ENDIF.
+
+    ASSIGN data->* TO FIELD-SYMBOL(<root>).
+
+    CASE kind_of( <root> ).
+      WHEN 'S'.
+        json = serialize_structure( c_data = <root> name_map = name_map ).
+      WHEN 'T'.
+        json = serialize_table( c_data = <root> name_map = name_map ).
+      WHEN OTHERS.
+        json = serialize_elementary( c_data = <root> ).
+    ENDCASE.
+
+  ENDMETHOD.
+
+
+  METHOD kind_of.
+
+    DATA(lo_descr) = cl_abap_typedescr=>describe_by_data( c_data ).
+
+    CASE lo_descr->type_kind.
+      WHEN cl_abap_typedescr=>typekind_struct1
+        OR cl_abap_typedescr=>typekind_struct2.
+        kind = 'S'.
+      WHEN cl_abap_typedescr=>typekind_table.
+        " Only standard tables take the STANDARD TABLE parameter -
+        " reject sorted/hashed tables with an exception instead of
+        " letting the generic check dump
+        IF CAST cl_abap_tabledescr( lo_descr )->table_kind
+             = cl_abap_tabledescr=>tablekind_std.
+          kind = 'T'.
+        ELSE.
+          RAISE EXCEPTION TYPE lcx_unsupported.
+        ENDIF.
+      WHEN OTHERS.
+        kind = 'E'.
+    ENDCASE.
+
+  ENDMETHOD.
+
+
+  METHOD serialize_structure.
+
+    DATA(lt_comp) = CAST cl_abap_structdescr(
+                      cl_abap_typedescr=>describe_by_data( c_data )
+                    )->get_components( ).
+
+    json = `{`.
+
+    LOOP AT lt_comp INTO DATA(ls_comp).
+
+      ASSIGN COMPONENT ls_comp-name OF STRUCTURE c_data
+        TO FIELD-SYMBOL(<comp>).
+      IF sy-subrc <> 0.
+        RAISE EXCEPTION TYPE lcx_unsupported.
+      ENDIF.
+
+      IF sy-tabix > 1.
+        json = json && `,`.
+      ENDIF.
+      json = json
+        && `"` && escape_string( json_key( abap_name = ls_comp-name
+                                           name_map  = name_map ) )
+        && `":`.
+
+      CASE kind_of( <comp> ).
+        WHEN 'S'.
+          json = json && serialize_structure( c_data = <comp>
+                                              name_map = name_map ).
+        WHEN 'T'.
+          json = json && serialize_table( c_data = <comp>
+                                          name_map = name_map ).
+        WHEN OTHERS.
+          json = json && serialize_elementary( c_data = <comp> ).
+      ENDCASE.
+
+    ENDLOOP.
+
+    json = json && `}`.
+
+  ENDMETHOD.
+
+
+  METHOD serialize_table.
+
+    json = `[`.
+
+    LOOP AT c_data ASSIGNING FIELD-SYMBOL(<line>).
+
+      IF sy-tabix > 1.
+        json = json && `,`.
+      ENDIF.
+
+      CASE kind_of( <line> ).
+        WHEN 'S'.
+          json = json && serialize_structure( c_data = <line>
+                                              name_map = name_map ).
+        WHEN 'T'.
+          json = json && serialize_table( c_data = <line>
+                                          name_map = name_map ).
+        WHEN OTHERS.
+          json = json && serialize_elementary( c_data = <line> ).
+      ENDCASE.
+
+    ENDLOOP.
+
+    json = json && `]`.
+
+  ENDMETHOD.
+
+
+  METHOD serialize_elementary.
+
+    DATA lv_value TYPE string.
+
+    DATA(lv_kind) = cl_abap_typedescr=>describe_by_data( c_data )->type_kind.
+
+    CASE lv_kind.
+
+      WHEN cl_abap_typedescr=>typekind_int
+        OR cl_abap_typedescr=>typekind_int1
+        OR cl_abap_typedescr=>typekind_int2
+        OR cl_abap_typedescr=>typekind_int8
+        OR cl_abap_typedescr=>typekind_packed
+        OR cl_abap_typedescr=>typekind_float
+        OR cl_abap_typedescr=>typekind_decfloat16
+        OR cl_abap_typedescr=>typekind_decfloat34.
+        " Numbers: zero is a value, never null. Plain assignment
+        " conversion only (period decimal separator, JSON-compatible);
+        " CONDENSE removes the trailing blank the conversion reserves
+        " for the sign
+        lv_value = c_data.
+        CONDENSE lv_value.
+        " packed -> character conversion places the sign trailing
+        " (88.5-): normalize it to the leading position
+        DATA(lv_last) = strlen( lv_value ) - 1.
+        IF lv_last >= 0 AND lv_value+lv_last(1) = `-`.
+          lv_value = `-` && lv_value(lv_last).
+        ENDIF.
+        json = lv_value.
+
+      WHEN cl_abap_typedescr=>typekind_char
+        OR cl_abap_typedescr=>typekind_num
+        OR cl_abap_typedescr=>typekind_date
+        OR cl_abap_typedescr=>typekind_time
+        OR cl_abap_typedescr=>typekind_string
+        OR cl_abap_typedescr=>typekind_hex
+        OR cl_abap_typedescr=>typekind_xstring.
+        " C length 1 is the boolean shape of this library: 'X' -> true,
+        " anything else -> false. Detected with DESCRIBE FIELD in
+        " character mode because the RTTI length attribute reports
+        " bytes on some systems.
+        IF lv_kind = cl_abap_typedescr=>typekind_char.
+          DESCRIBE FIELD c_data LENGTH DATA(lv_len) IN CHARACTER MODE.
+          IF lv_len = 1.
+            IF c_data = abap_true.
+              json = 'true'.
+            ELSE.
+              json = 'false'.
+            ENDIF.
+            RETURN.
+          ENDIF.
+        ENDIF.
+        " All other character-like kinds: initial -> null (a data
+        " object cannot distinguish null from an empty string)
+        IF c_data IS INITIAL.
+          json = 'null'.
+          RETURN.
+        ENDIF.
+        lv_value = c_data.
+        json = `"` && escape_string( lv_value ) && `"`.
+
+      WHEN OTHERS.
+        " references, utclong, unknown kinds
+        RAISE EXCEPTION TYPE lcx_unsupported.
+
+    ENDCASE.
+
+  ENDMETHOD.
+
+
+  METHOD escape_string.
+
+    DATA lv_i TYPE i.
+    DATA lv_len TYPE i.
+    DATA lv_char TYPE c LENGTH 1.
+    DATA lv_out TYPE string.
+
+    lv_len = strlen( text ).
+    WHILE lv_i < lv_len.
+      lv_char = text+lv_i(1).
+      IF lv_char = `"`.
+        lv_out = lv_out && `\"`.
+      ELSEIF lv_char = `\`.
+        lv_out = lv_out && `\\`.
+      ELSEIF lv_char = cl_abap_char_utilities=>backspace.
+        lv_out = lv_out && `\b`.
+      ELSEIF lv_char = cl_abap_char_utilities=>form_feed.
+        lv_out = lv_out && `\f`.
+      ELSEIF lv_char = cl_abap_char_utilities=>newline.
+        lv_out = lv_out && `\n`.
+      ELSEIF lv_char = cl_abap_char_utilities=>cr_lf(1).
+        lv_out = lv_out && `\r`.
+      ELSEIF lv_char = cl_abap_char_utilities=>horizontal_tab.
+        lv_out = lv_out && `\t`.
+      ELSEIF lv_char < space.
+        " remaining control characters as \u00XX
+        DATA(lv_hex) = CONV string( CONV xstring( lv_char ) ).
+        lv_out = lv_out && `\u00` && lv_hex.
+      ELSE.
+        lv_out = lv_out && lv_char.
+      ENDIF.
+      lv_i = lv_i + 1.
+    ENDWHILE.
+
+    json = lv_out.
+
+  ENDMETHOD.
+
+
+  METHOD json_key.
+
+    READ TABLE name_map INTO DATA(ls_map) WITH KEY abap = abap_name.
+    IF sy-subrc = 0.
+      json_name = ls_map-json.
+    ELSE.
+      json_name = abap_name.
+    ENDIF.
+
+  ENDMETHOD.
+
+ENDCLASS.

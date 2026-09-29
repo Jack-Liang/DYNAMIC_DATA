@@ -57,6 +57,15 @@ CLASS zcl_dynamic_object DEFINITION
         duplicate_components
         invalid_json
         invalid_field_name .
+
+    CLASS-METHODS to_json
+      IMPORTING
+        VALUE(data)     TYPE REF TO data
+        VALUE(name_map) TYPE ty_name_map OPTIONAL
+      RETURNING
+        VALUE(json)     TYPE string
+      EXCEPTIONS
+        unsupported_type .
   PROTECTED SECTION.
 
 
@@ -225,6 +234,33 @@ METHOD create_data_by_json.
   ENDTRY.
 
 ENDMETHOD.
+
+
+  METHOD to_json.
+*&----------------------------------------------------------------------------
+*&    Serialize a generated (or arbitrary) data object back to JSON -
+*&    the inverse of CREATE_DATA_BY_JSON. Booleans (C length 1) become
+*&    true/false, character-like initial values become null, numeric
+*&    zeros are emitted as numbers, dates/times/hex are emitted as
+*&    internal-format strings. NAME_MAP is applied in reverse
+*&    (ABAP component name -> JSON key). An unbound reference
+*&    serializes as null; reference components raise unsupported_type.
+*&----------------------------------------------------------------------------
+
+  IF data IS NOT BOUND.
+    json = 'null'.
+    RETURN.
+  ENDIF.
+
+  TRY.
+      json = lcl_json_serializer=>serialize(
+               data     = data
+               name_map = normalize_name_map( name_map ) ).
+    CATCH cx_dynamic_check.
+      RAISE unsupported_type.
+  ENDTRY.
+
+  ENDMETHOD.
 
 
   METHOD build_type.

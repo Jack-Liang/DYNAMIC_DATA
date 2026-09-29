@@ -1040,3 +1040,385 @@ CLASS ltcl_dynamic_type IMPLEMENTATION.
   ENDMETHOD.
 
 ENDCLASS.
+
+
+"* Serialization tests: to_json is the inverse of create_data_by_json.
+"* Rule tests pin the exact JSON text, round-trip tests parse both the
+"* input and the serialized output into node tables with lcl_json_parser
+"* and require them to be identical (JSON key names compared case
+"* insensitive, since the original case is not retained by the builder).
+
+CLASS ltcl_serialize DEFINITION FINAL
+  FOR TESTING
+  RISK LEVEL HARMLESS
+  DURATION SHORT.
+
+  PRIVATE SECTION.
+
+    METHODS bool_true_false FOR TESTING.
+    METHODS initial_becomes_null FOR TESTING.
+    METHODS zero_is_a_value FOR TESTING.
+    METHODS escaping_round_trips FOR TESTING.
+    METHODS date_time_internal_format FOR TESTING.
+    METHODS empty_table FOR TESTING.
+    METHODS name_map_key_restored FOR TESTING.
+    METHODS unbound_reference FOR TESTING.
+    METHODS ref_component_unsupported FOR TESTING.
+    METHODS root_scalar FOR TESTING.
+    METHODS round_trip_readme FOR TESTING RAISING zcx_dynamic_json_error.
+    METHODS round_trip_inferred FOR TESTING RAISING zcx_dynamic_json_error.
+    METHODS round_trip_scalar_array FOR TESTING RAISING zcx_dynamic_json_error.
+    METHODS round_trip_name_map FOR TESTING RAISING zcx_dynamic_json_error.
+
+    METHODS data_from_json
+      IMPORTING
+        i_json        TYPE string
+        i_map         TYPE zcl_dynamic_object=>ty_name_map OPTIONAL
+      RETURNING
+        VALUE(result) TYPE REF TO data
+      RAISING
+        zcx_dynamic_json_error
+        zcx_dynamic_name_error.
+
+    METHODS serialize_ref
+      IMPORTING
+        i_data        TYPE REF TO data
+        i_map         TYPE zcl_dynamic_object=>ty_name_map OPTIONAL
+      RETURNING
+        VALUE(result) TYPE string.
+
+    METHODS serialize_subrc
+      IMPORTING
+        i_data        TYPE REF TO data
+      RETURNING
+        VALUE(result) TYPE i.
+
+    METHODS round_trip
+      IMPORTING
+        i_json TYPE string
+        i_map  TYPE zcl_dynamic_object=>ty_name_map OPTIONAL
+      RAISING
+        zcx_dynamic_json_error
+        zcx_dynamic_name_error.
+
+    METHODS assert_nodes_equal
+      IMPORTING
+        i_nodes1 TYPE lcl_json_parser=>ty_nodes
+        i_nodes2 TYPE lcl_json_parser=>ty_nodes.
+
+ENDCLASS.
+
+CLASS ltcl_serialize IMPLEMENTATION.
+
+  METHOD data_from_json.
+
+    CALL METHOD zcl_dynamic_object=>create_data_by_json
+      EXPORTING
+        json_data            = i_json
+        infer_types          = abap_true
+        name_map             = i_map
+      RECEIVING
+        ref_data             = result
+      EXCEPTIONS
+        execution_failed     = 1
+        duplicate_components = 2
+        invalid_json         = 3
+        invalid_field_name   = 4
+        OTHERS               = 8.
+    cl_abap_unit_assert=>assert_subrc( msg = |create_data_by_json failed for { i_json }| ).
+
+  ENDMETHOD.
+
+
+  METHOD serialize_ref.
+
+    CALL METHOD zcl_dynamic_object=>to_json
+      EXPORTING
+        data             = i_data
+        name_map         = i_map
+      RECEIVING
+        json             = result
+      EXCEPTIONS
+        unsupported_type = 4
+        OTHERS           = 8.
+    cl_abap_unit_assert=>assert_subrc( msg = 'to_json raised unexpectedly' ).
+
+  ENDMETHOD.
+
+
+  METHOD serialize_subrc.
+
+    DATA lv_json TYPE string.
+
+    CALL METHOD zcl_dynamic_object=>to_json
+      EXPORTING
+        data             = i_data
+      RECEIVING
+        json             = lv_json
+      EXCEPTIONS
+        unsupported_type = 4
+        OTHERS           = 8.
+    result = sy-subrc.
+
+  ENDMETHOD.
+
+
+  METHOD bool_true_false.
+
+    DATA(lr_data) = data_from_json( `{"ON": true, "OFF": false}` ).
+
+    cl_abap_unit_assert=>assert_equals(
+      exp = `{"ON":true,"OFF":false}`
+      act = serialize_ref( lr_data ) ).
+
+  ENDMETHOD.
+
+
+  METHOD initial_becomes_null.
+
+    " A data object cannot distinguish null from an empty string,
+    " so both serialize as null (documented trade-off)
+    DATA(lr_data) = data_from_json( `{"NOTE": null, "TXT": ""}` ).
+
+    cl_abap_unit_assert=>assert_equals(
+      exp = `{"NOTE":null,"TXT":null}`
+      act = serialize_ref( lr_data ) ).
+
+  ENDMETHOD.
+
+
+  METHOD zero_is_a_value.
+
+    " Numeric zero is a value, never null; the trailing sign blank of
+    " the packed conversion is condensed, the trailing minus of the
+    " packed conversion is moved to the leading position
+    DATA(lr_data) = data_from_json(
+      `{"PRICE": 0, "LEVEL": 95, "P": 88.5, "N": -88.5, "N2": -7}` ).
+
+    cl_abap_unit_assert=>assert_equals(
+      exp = `{"PRICE":0,"LEVEL":95,"P":88.5,"N":-88.5,"N2":-7}`
+      act = serialize_ref( lr_data ) ).
+
+  ENDMETHOD.
+
+
+  METHOD escaping_round_trips.
+
+    " The serialized text must be identical to the input: the parser
+    " resolves the JSON escapes and the serializer re-escapes them.
+    " The non ASCII text is built from UTF-8 bytes to keep this
+    " source 7 bit ascii (abaplint rule)
+    DATA(lv_unicode) = cl_abap_codepage=>convert_from(
+                         CONV xstring( 'E4B8ADE69687' ) ).
+
+    DATA(lv_json) = `{"S": "a\"b\\c\nd\te` && lv_unicode && `"}`.
+    DATA(lr_data) = data_from_json( lv_json ).
+
+    cl_abap_unit_assert=>assert_equals(
+      exp = `{"S":"a\"b\\c\nd\te` && lv_unicode && `"}`
+      act = serialize_ref( lr_data ) ).
+
+  ENDMETHOD.
+
+
+  METHOD date_time_internal_format.
+
+    " Dates and times are emitted in their internal representation,
+    " which round-trips through the filler's string conversion.
+    " X/XSTRING hex serialization is exercised on real systems only:
+    " cl_abap_elemdescr=>get_x is a todo stub in open-abap
+    DATA lt_tab TYPE zdot_datadescr.
+    DATA lr_type TYPE REF TO cl_abap_datadescr.
+    DATA lr_data TYPE REF TO data.
+
+    lt_tab = VALUE zdot_datadescr(
+      ( fldname = 'D' fldtype = 'F' intty = 'D' )
+      ( fldname = 'T' fldtype = 'F' intty = 'T' ) ).
+
+    CALL METHOD zcl_dynamic_object=>create_by_field_tab
+      EXPORTING
+        field_tab            = lt_tab
+        type                 = 'S'
+      RECEIVING
+        ref_type             = lr_type
+      EXCEPTIONS
+        unsupported_type     = 1
+        execution_failed     = 2
+        duplicate_components = 3
+        OTHERS               = 8.
+    cl_abap_unit_assert=>assert_subrc( ).
+
+    CREATE DATA lr_data TYPE HANDLE lr_type.
+    ASSIGN lr_data->* TO FIELD-SYMBOL(<wa>).
+
+    ASSIGN COMPONENT 'D' OF STRUCTURE <wa> TO FIELD-SYMBOL(<d>).
+    <d> = '20260929'.
+    ASSIGN COMPONENT 'T' OF STRUCTURE <wa> TO FIELD-SYMBOL(<t>).
+    <t> = '123456'.
+
+    cl_abap_unit_assert=>assert_equals(
+      exp = `{"D":"20260929","T":"123456"}`
+      act = serialize_ref( lr_data ) ).
+
+  ENDMETHOD.
+
+
+  METHOD empty_table.
+
+    DATA(lr_data) = data_from_json( `{"TAGS": []}` ).
+
+    cl_abap_unit_assert=>assert_equals(
+      exp = `{"TAGS":[]}`
+      act = serialize_ref( lr_data ) ).
+
+  ENDMETHOD.
+
+
+  METHOD name_map_key_restored.
+
+    " The JSON key is emitted from the name map (abap -> json direction)
+    DATA(lt_map) = VALUE zcl_dynamic_object=>ty_name_map(
+      ( json = 'A_VERY_LONG_JSON_KEY_NAME_OVER_30_CHARS' abap = 'SHORT' ) ).
+
+    DATA(lr_data) = data_from_json(
+      i_json = `{"A_VERY_LONG_JSON_KEY_NAME_OVER_30_CHARS": "v"}`
+      i_map  = lt_map ).
+
+    cl_abap_unit_assert=>assert_equals(
+      exp = `{"A_VERY_LONG_JSON_KEY_NAME_OVER_30_CHARS":"v"}`
+      act = serialize_ref( i_data = lr_data i_map = lt_map ) ).
+
+  ENDMETHOD.
+
+
+  METHOD unbound_reference.
+
+    DATA lr_data TYPE REF TO data.
+
+    cl_abap_unit_assert=>assert_equals(
+      exp = `null`
+      act = serialize_ref( lr_data ) ).
+
+  ENDMETHOD.
+
+
+  METHOD ref_component_unsupported.
+
+    " REFTY rows build pointee-typed components (describe_by_data_ref
+    " dereferences), so a reference VALUE is only reachable at the
+    " root: serialize a data object that is itself a reference
+    DATA lr_i TYPE REF TO i.
+    DATA lr_root TYPE REF TO data.
+
+    CREATE DATA lr_i.
+    GET REFERENCE OF lr_i INTO lr_root.
+
+    cl_abap_unit_assert=>assert_equals(
+      exp = 4
+      act = serialize_subrc( lr_root )
+      msg = 'reference values must raise unsupported_type' ).
+
+  ENDMETHOD.
+
+
+  METHOD root_scalar.
+
+    DATA lr_data TYPE REF TO data.
+    CREATE DATA lr_data TYPE i.
+    ASSIGN lr_data->* TO FIELD-SYMBOL(<i>).
+    <i> = 5.
+
+    cl_abap_unit_assert=>assert_equals(
+      exp = `5`
+      act = serialize_ref( lr_data ) ).
+
+  ENDMETHOD.
+
+
+  METHOD round_trip.
+
+    DATA(lr_data) = data_from_json( i_json = i_json i_map = i_map ).
+
+    DATA(lv_json2) = serialize_ref( i_data = lr_data i_map = i_map ).
+
+    assert_nodes_equal(
+      i_nodes1 = lcl_json_parser=>parse( i_json )
+      i_nodes2 = lcl_json_parser=>parse( lv_json2 ) ).
+
+  ENDMETHOD.
+
+
+  METHOD round_trip_readme.
+
+    round_trip(
+      `{ "hello": "hi", "author": { "name": "Jack", "favLang": "ABAP", "github": "g" },`
+      && ` "skills": [ { "name": "ABAP", "level": 95 } ] }` ).
+
+  ENDMETHOD.
+
+
+  METHOD round_trip_inferred.
+
+    " Numbers, booleans, null, nested structures and nested tables
+    round_trip(
+      `{ "count": 0, "ratio": 88.5, "flag": true, "note": null,`
+      && ` "address": { "city": "Paris", "geo": { "lat": 1.5, "lng": 2.5 } },`
+      && ` "skills": [ { "name": "ABAP", "level": 95 } ],`
+      && ` "points": [ 10, 20 ] }` ).
+
+  ENDMETHOD.
+
+
+  METHOD round_trip_scalar_array.
+
+    " Root arrays of scalars are built as TABLE OF string (walk_array
+    " only types member arrays - there is no root row to carry the
+    " inference), so the strings survive the round trip unchanged
+    round_trip( `["a", "b"]` ).
+
+  ENDMETHOD.
+
+
+  METHOD round_trip_name_map.
+
+    round_trip(
+      i_json = `{"A_VERY_LONG_JSON_KEY_NAME_OVER_30_CHARS": "v"}`
+      i_map  = VALUE zcl_dynamic_object=>ty_name_map(
+                 ( json = 'A_VERY_LONG_JSON_KEY_NAME_OVER_30_CHARS'
+                   abap = 'SHORT' ) ) ).
+
+  ENDMETHOD.
+
+
+  METHOD assert_nodes_equal.
+
+    cl_abap_unit_assert=>assert_equals(
+      exp = lines( i_nodes1 )
+      act = lines( i_nodes2 )
+      msg = 'round trip node count differs' ).
+
+    LOOP AT i_nodes1 ASSIGNING FIELD-SYMBOL(<n1>).
+      DATA(lv_index) = sy-tabix.
+      READ TABLE i_nodes2 INDEX lv_index INTO DATA(ls_n2).
+      cl_abap_unit_assert=>assert_subrc( msg = |node { lv_index } missing| ).
+      cl_abap_unit_assert=>assert_equals(
+        exp = to_upper( <n1>-path )
+        act = to_upper( ls_n2-path )
+        msg = |node { lv_index } path differs| ).
+      cl_abap_unit_assert=>assert_equals(
+        exp = to_upper( <n1>-name )
+        act = to_upper( ls_n2-name )
+        msg = |node { lv_index } name differs| ).
+      cl_abap_unit_assert=>assert_equals(
+        exp = <n1>-kind
+        act = ls_n2-kind
+        msg = |node { lv_index } kind differs| ).
+      cl_abap_unit_assert=>assert_equals(
+        exp = <n1>-value
+        act = ls_n2-value
+        msg = |node { lv_index } value differs| ).
+    ENDLOOP.
+
+  ENDMETHOD.
+
+ENDCLASS.
